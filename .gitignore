@@ -32,11 +32,14 @@ Thumbs.db
 *.swp
 *.bak
 *.tmp
+.cache/
+*.log
 
 # --- Test output / runtime data ---
 *.jpg
 *.png
 *.bmp
+*.tif
 *.tiff
 *.yaml
 *.xml
