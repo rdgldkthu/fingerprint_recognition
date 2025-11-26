@@ -1,7 +1,7 @@
 #include "fingerprint/enhancement.hpp"
 #include <cmath>
+#include <opencv2/core/mat.hpp>
 #include <vector>
-#include <iomanip>
 #include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -30,10 +30,10 @@ cv::Mat Enhancer::enhance(const cv::Mat &input) const {
   cv::Mat frequency_img = estimateFrequency(normalized_img, orientation_img);
 
   // Recoverability Check
-  cv::Mat region_mask = generateRegionMask(normalized_img);
+  cv::Mat region_mask = generateRegionMask(gray_img);
   double RECOVERABLE_THRESHOLD = 40.0;
   double recoverable_ratio =
-      cv::sum(region_mask)[0] / (region_mask.rows * region_mask.cols) * 100.0;
+      cv::sum(region_mask / 255)[0] / (region_mask.rows * region_mask.cols) * 100.0;
 
   if (recoverable_ratio < RECOVERABLE_THRESHOLD) {
     std::cout << "Image Rejected: Recoverable region is " <<
@@ -64,8 +64,10 @@ cv::Mat Enhancer::enhance(const cv::Mat &input) const {
     cv::imshow("Frequency Image", frequency_img);
     cv::waitKey(0);
 
-    // cv::imshow("Region Mask", region_mask);
-    // cv::waitKey(0);
+    cv::imshow("Region Mask", region_mask);
+    cv::waitKey(0);
+    std::cout << "Recoverable region: " << recoverable_ratio << '%'
+              << std::endl;
 
     // cv::imshow("Enhanced", enhanced);
     // cv::waitKey(0);
@@ -333,11 +335,24 @@ float Enhancer::estimatePeriod(const std::vector<float> &x_sig) const {
 }
 
 // === Region Mask ===
-cv::Mat Enhancer::generateRegionMask(const cv::Mat &img) const {
-  CV_Assert(!img.empty());
-  CV_Assert(img.type() == CV_32FC1);
-  // TODO 3: Implement region mask generation
-  return cv::Mat(img.size(), CV_8UC1, cv::Scalar(0));
+cv::Mat Enhancer::generateRegionMask(const cv::Mat &gray_img) const {
+  CV_Assert(!gray_img.empty());
+  CV_Assert(gray_img.type() == CV_8UC1);
+
+  cv::Mat blur;
+  cv::GaussianBlur(gray_img, blur, cv::Size(7, 7), 0);
+
+  cv::Mat bin;
+  cv::threshold(blur, bin, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+
+  cv::Size ksize = cv::Size(31, 61);
+  cv::Mat se = cv::getStructuringElement(cv::MORPH_ELLIPSE, ksize);
+
+  cv::Mat region_mask;
+  cv::morphologyEx(~bin, region_mask, cv::MORPH_CLOSE, se);
+  cv::morphologyEx(region_mask, region_mask, cv::MORPH_OPEN, se);
+
+  return region_mask;
 }
 
 // === Enhancement ===
