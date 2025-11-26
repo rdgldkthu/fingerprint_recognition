@@ -1,6 +1,7 @@
 #include "fingerprint/enhancement.hpp"
 #include <cmath>
 #include <vector>
+#include <iomanip>
 #include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -28,24 +29,23 @@ cv::Mat Enhancer::enhance(const cv::Mat &input) const {
   // Frequency Image Estimation
   cv::Mat frequency_img = estimateFrequency(normalized_img, orientation_img);
 
-  // // Recoverability Check
-  // cv::Mat region_mask = generateRegionMask(normalized_img);
-  // double RECOVERABLE_THRESHOLD = 40.0;
-  // double recoverable_ratio =
-  //     cv::sum(region_mask)[0] / (region_mask.rows * region_mask.cols);
-  // if (recoverable_ratio < RECOVERABLE_THRESHOLD) {
-  //   std::cout << "Image Rejected: Recoverable region is " <<
-  //   recoverable_ratio
-  //             << "% of the image, which is less than threshold: "
-  //             << RECOVERABLE_THRESHOLD << std::endl;
-  //   return cv::Mat();
-  // }
+  // Recoverability Check
+  cv::Mat region_mask = generateRegionMask(normalized_img);
+  double RECOVERABLE_THRESHOLD = 40.0;
+  double recoverable_ratio =
+      cv::sum(region_mask)[0] / (region_mask.rows * region_mask.cols) * 100.0;
 
-  // // Filtering
-  // cv::Mat filtered_img;
-  // applyGabor(normalized_img, filtered_img, orientation_img, frequency_img);
+  if (recoverable_ratio < RECOVERABLE_THRESHOLD) {
+    std::cout << "Image Rejected: Recoverable region is " <<
+    recoverable_ratio
+              << "% of the image, which is less than threshold: "
+              << RECOVERABLE_THRESHOLD << '%' << std::endl;
+    return cv::Mat();
+  }
 
-  cv::Mat enhanced = orientation_img;
+  // Gabor Filtering
+  cv::Mat enhanced_img;
+  applyGabor(normalized_img, enhanced_img, orientation_img, frequency_img);
 
 #ifdef FP_DEBUG_VIS // Visualize Process
   {
@@ -72,7 +72,7 @@ cv::Mat Enhancer::enhance(const cv::Mat &input) const {
   }
 #endif
 
-  return enhanced;
+  return enhanced_img;
 }
 
 // === Preprocessing ===
@@ -207,6 +207,39 @@ cv::Mat Enhancer::estimateFrequency(const cv::Mat &img,
     }
   }
 
+  // Interpolation to fill the missing frequency values
+  cv::Mat kernel = cv::getGaussianKernel(7, 3, CV_32F);
+  cv::Mat kernel2D = kernel * kernel.t();
+
+  for (int by = 0; by < rows; ++by) {
+    for (int bx = 0; bx < cols; ++bx) {
+      if (frequency_img.at<float>(by, bx) == -1.f) {
+        float weighted_sum = 0.f;
+        float weight_sum = 0;
+
+        for (int dy = -3; dy <= 3; ++dy) {
+          for (int dx = -3; dx <= 3; ++dx) {
+            int ny = by + dy;
+            int nx = bx + dx;
+            if (ny >= 0 && ny < rows && nx >= 0 && nx < cols) {
+              float f = frequency_img.at<float>(ny, nx);
+              if (f > 0.f) {
+                float w = kernel2D.at<float>(dy + 3, dx + 3);
+                weighted_sum += f * w;
+                weight_sum += w;
+              }
+            }
+          }
+        }
+
+          frequency_img.at<float>(by, bx) = weighted_sum / weight_sum;
+      }
+    }
+  }
+
+  //Perform smoothing to the frequency image
+  cv::GaussianBlur(frequency_img, frequency_img, cv::Size(7, 7), 0);
+
   return frequency_img;
 }
 
@@ -299,12 +332,12 @@ float Enhancer::estimatePeriod(const std::vector<float> &x_sig) const {
   return period;
 }
 
-    // === Region Mask ===
-    cv::Mat Enhancer::generateRegionMask(const cv::Mat &img) const {
+// === Region Mask ===
+cv::Mat Enhancer::generateRegionMask(const cv::Mat &img) const {
   CV_Assert(!img.empty());
   CV_Assert(img.type() == CV_32FC1);
-
-  return cv::Mat();
+  // TODO 3: Implement region mask generation
+  return cv::Mat(img.size(), CV_8UC1, cv::Scalar(0));
 }
 
 // === Enhancement ===
@@ -317,6 +350,7 @@ void Enhancer::applyGabor(const cv::Mat &src, cv::Mat &dst,
   CV_Assert(src.type() == CV_32FC1);
   CV_Assert(orientation_img.type() == CV_32FC1);
   CV_Assert(frequency_img.type() == CV_32FC1);
+  // TODO 4: Implement Gabor filtering
 }
 
 // === Debug/Visualization ===
