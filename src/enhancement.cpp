@@ -1,8 +1,8 @@
 #include "fingerprint/enhancement.hpp"
-#include <cmath>
-#include <opencv2/core/mat.hpp>
-#include <vector>
 #include <iostream>
+#include <cmath>
+#include <vector>
+#include <set>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -45,7 +45,7 @@ cv::Mat Enhancer::enhance(const cv::Mat &input) const {
 
   // Gabor Filtering
   cv::Mat enhanced_img;
-  applyGabor(normalized_img, enhanced_img, orientation_img, frequency_img);
+  applyGabor(normalized_img, enhanced_img, orientation_img, frequency_img, region_mask);
 
 #ifdef FP_DEBUG_VIS // Visualize Process
   {
@@ -69,8 +69,8 @@ cv::Mat Enhancer::enhance(const cv::Mat &input) const {
     std::cout << "Recoverable region: " << recoverable_ratio << '%'
               << std::endl;
 
-    // cv::imshow("Enhanced", enhanced);
-    // cv::waitKey(0);
+    cv::imshow("Enhanced", enhanced_img);
+    cv::waitKey(0);
   }
 #endif
 
@@ -250,11 +250,11 @@ float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
   CV_Assert(!img.empty());
   CV_Assert(img.type() == CV_32FC1);
 
-#ifdef FP_DEBUG_VIS
-  cv::Mat debug;
-  img.convertTo(debug, CV_8UC1, 255.0);
-  cv::cvtColor(debug, debug, cv::COLOR_GRAY2BGR);
-#endif
+// #ifdef FP_DEBUG_VIS
+//   cv::Mat debug;
+//   img.convertTo(debug, CV_8UC1, 255.0);
+//   cv::cvtColor(debug, debug, cv::COLOR_GRAY2BGR);
+// #endif
 
   // Sample the gray values along the orthogonal direction of the ridge orientation
   std::vector<float> x_sig(window_length, 0.f);
@@ -277,18 +277,18 @@ float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
 
       sum += img.at<float>(u, v);
 
-#ifdef FP_DEBUG_VIS
-      cv::circle(debug, cv::Point(v, u), 1, cv::Scalar(0, 0, 255), -1);
-#endif
+// #ifdef FP_DEBUG_VIS
+//       cv::circle(debug, cv::Point(v, u), 1, cv::Scalar(0, 0, 255), -1);
+// #endif
     }
 
     x_sig[k] = sum / block_size;
   }
 
-#ifdef FP_DEBUG_VIS
-  cv::imshow("Sampling Debug", debug);
-  cv::waitKey(0);
-#endif
+// #ifdef FP_DEBUG_VIS
+//   cv::imshow("Sampling Debug", debug);
+//   cv::waitKey(0);
+// #endif
 
   // Estimate the period from the x-signature
   float T = estimatePeriod(x_sig);
@@ -358,14 +358,143 @@ cv::Mat Enhancer::generateRegionMask(const cv::Mat &gray_img) const {
 // === Enhancement ===
 void Enhancer::applyGabor(const cv::Mat &src, cv::Mat &dst,
                           const cv::Mat &orientation_img,
-                          const cv::Mat &frequency_img) const {
+                          const cv::Mat &frequency_img,
+                          const cv::Mat &region_mask,
+                          float kx, float ky, int filter_size) const {
   CV_Assert(!src.empty());
   CV_Assert(!orientation_img.empty());
   CV_Assert(!frequency_img.empty());
+  CV_Assert(!region_mask.empty());
   CV_Assert(src.type() == CV_32FC1);
   CV_Assert(orientation_img.type() == CV_32FC1);
   CV_Assert(frequency_img.type() == CV_32FC1);
-  // TODO 4: Implement Gabor filtering
+  CV_Assert(region_mask.type() == CV_8UC1);
+
+  // Resize orientation and frequency images to match source image size
+  cv::Mat ori_resized, freq_resized;
+  cv::resize(orientation_img, ori_resized, src.size(), 0, 0, cv::INTER_NEAREST);
+  cv::resize(frequency_img, freq_resized, src.size(), 0, 0, cv::INTER_NEAREST);
+
+  // Extract unique frequencies
+  std::set<float> freq_set;
+  for (int y = 0; y < freq_resized.rows; ++y) {
+    const float *freq_ptr = freq_resized.ptr<float>(y);
+    for (int x = 0; x < freq_resized.cols; ++x) {
+      float f = std::round(freq_ptr[x] * 100) / 100.f;
+      if (f > 0.f)
+        freq_set.insert(f);
+    }
+  }
+  std::vector<float> unique_freqs(freq_set.begin(), freq_set.end());
+
+  // Map frequency to index
+  std::unordered_map<int, int> freq_index_map;
+  for (int i = 0; i < unique_freqs.size(); ++i)
+    freq_index_map[static_cast<int>(unique_freqs[i] * 100)] = i;
+
+  // Build Gabor filter bank
+  std::vector<std::vector<cv::Mat>> bank;
+  buildGaborFilterBank(unique_freqs, bank, kx, ky, filter_size);
+
+  // Apply Gabor filter bank
+  applyGaborFilterBank(src, dst, ori_resized, freq_resized, freq_index_map, bank,
+                      filter_size);
+}
+
+cv::Mat Enhancer::createGaborFilter(float frequency, float orientation, float kx,
+                          float ky, int filter_size) const {
+  cv::Mat gabor_filter(filter_size, filter_size, CV_32FC1);
+
+  float sigma_x = kx / frequency;
+  float sigma_y = ky / frequency;
+
+  float cos_phi = std::cos(orientation);
+  float sin_phi = std::sin(orientation);
+
+  int half_size = filter_size / 2;
+  for (int y = -half_size; y <= half_size; ++y) {
+    for (int x = -half_size; x <= half_size; ++x) {
+      // Rotate coordinates
+      float x_phi = x * cos_phi + y * sin_phi;
+      float y_phi = -x * sin_phi + y * cos_phi;
+
+      // Gabor formula
+      float exponent =
+          -0.5f * ((x_phi * x_phi) / (sigma_x * sigma_x) +
+                   (y_phi * y_phi) / (sigma_y * sigma_y));
+      float cosine = std::cos(2.0f * CV_PI * frequency * x_phi);
+
+      gabor_filter.at<float>(y + half_size, x + half_size) =
+          std::exp(exponent) * cosine;
+    }
+  }
+  return gabor_filter;
+}
+
+void Enhancer::buildGaborFilterBank(const std::vector<float> &unique_freqs,
+                          std::vector<std::vector<cv::Mat>> &bank, float kx,
+                          float ky, int filter_size) const {
+  int angle_increment = 3;
+  int angle_steps = 180 / angle_increment;
+
+  bank.resize(unique_freqs.size(), std::vector<cv::Mat>(angle_steps));
+
+  for (int fi = 0; fi < unique_freqs.size(); ++fi) {
+    float freq = unique_freqs[fi];
+    for (int oi = 0; oi < angle_steps; ++oi) {
+      float ori = (oi * angle_increment) * CV_PI / 180.f;
+      bank[fi][oi] = createGaborFilter(freq, ori, kx, ky, filter_size);
+    }
+  }
+}
+void Enhancer::applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
+                          const cv::Mat &ori_img_resized,
+                          const cv::Mat &freq_img_resized,
+                          const std::unordered_map<int, int> &freq_index_map,
+                          const std::vector<std::vector<cv::Mat>> &bank,
+                          int filter_size) const {
+  int rows = src.rows;
+  int cols = src.cols;
+
+  int angle_increment = 3;
+  int angle_steps = 180 / angle_increment;
+
+  dst = cv::Mat::zeros(rows, cols, CV_32FC1);
+
+  for (int y = filter_size; y < rows - filter_size; ++y) {
+    for (int x = filter_size; x < cols - filter_size; ++x) {
+      float ori = ori_img_resized.at<float>(y, x);
+      float freq = freq_img_resized.at<float>(y, x);
+
+      if (freq <= 0.f)
+        continue;
+
+      int freq_key = static_cast<int>(std::round(freq * 100));
+      auto it = freq_index_map.find(freq_key);
+      if (it == freq_index_map.end())
+        continue;
+
+      int fi = it->second;
+      int oi = static_cast<int>(std::round(ori * 180 / CV_PI / angle_increment)) %
+               angle_steps;
+      if (oi < 0)
+        oi += angle_steps;
+
+      const cv::Mat &gabor_filter = bank[fi][oi];
+
+      // Apply Gabor filter
+      float sum = 0.f;
+      for (int fy = -filter_size / 2; fy <= filter_size / 2; ++fy) {
+        const float *src_ptr = src.ptr<float>(y + fy);
+        const float *filter_ptr = gabor_filter.ptr<float>(fy + filter_size / 2);
+        for (int fx = -filter_size / 2; fx <= filter_size / 2; ++fx) {
+          sum += src_ptr[x + fx] * filter_ptr[fx + filter_size / 2];
+        }
+      }
+
+      dst.at<float>(y, x) = sum;
+    }
+  }
 }
 
 // === Debug/Visualization ===

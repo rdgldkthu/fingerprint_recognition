@@ -34,8 +34,20 @@ private:
 
   // === Enhancement ===
   void applyGabor(const cv::Mat &src, cv::Mat &dst,
-                  const cv::Mat &orientation_img,
-                  const cv::Mat &frequency_img) const;
+                  const cv::Mat &orientation_img, const cv::Mat &frequency_img,
+                  const cv::Mat &region_mask, float kx = 4.0, float ky = 4.0,
+                  int filter_size = 11) const;
+  cv::Mat createGaborFilter(float frequency, float orientation, float kx,
+                            float ky, int filter_size) const;
+  void buildGaborFilterBank(const std::vector<float> &unique_freqs,
+                            std::vector<std::vector<cv::Mat>> &bank, float kx,
+                            float ky, int filter_size) const;
+  void applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
+                            const cv::Mat &ori_img_resized,
+                            const cv::Mat &freq_img_resized,
+                            const std::unordered_map<int, int> &freq_index_map,
+                            const std::vector<std::vector<cv::Mat>> &bank,
+                            int filter_size) const;
 
   // === Debug/Visualization ===
   void showOrientation(const cv::Mat &bg_img, const cv::Mat &orientation_img,
