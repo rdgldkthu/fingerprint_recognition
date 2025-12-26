@@ -9,72 +9,91 @@
 
 namespace fp {
 
-cv::Mat Enhancer::enhance(const cv::Mat &input) const {
-  if (input.empty())
-    return cv::Mat();
+void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
+  if (src.empty()) {
+    std::cerr << "Input image is empty!" << std::endl;
+    dst = cv::Mat();
+    return;
+  }
 
   cv::Mat gray_img;
-  if (input.channels() == 3)
-    cv::cvtColor(input, gray_img, cv::COLOR_BGR2GRAY);
+  if (src.channels() == 3)
+    cv::cvtColor(src, gray_img, cv::COLOR_BGR2GRAY);
   else
-    gray_img = input.clone();
+    gray_img = src.clone();
+#ifdef FP_DEBUG_VIS
+  cv::namedWindow("Original", cv::WINDOW_NORMAL);
+  cv::moveWindow("Original", 50, 50);
+  cv::imshow("Original", gray_img);
+  cv::waitKey(0);
+#endif
 
   // Normalization
   cv::Mat normalized_img;
   normalize(gray_img, normalized_img);
+#ifdef FP_DEBUG_VIS
+  cv::Mat norm_vis_img;
+  cv::convertScaleAbs(normalized_img, norm_vis_img);
+  cv::namedWindow("Normalized", cv::WINDOW_NORMAL);
+  cv::moveWindow("Normalized", 450, 50);
+  cv::imshow("Normalized", norm_vis_img);
+  cv::waitKey(0);
+#endif
 
   // Orientation Image Estimation
   cv::Mat orientation_img = estimateOrientation(normalized_img);
+#ifdef FP_DEBUG_VIS
+  showOrientation(gray_img, orientation_img);
+  cv::namedWindow("Orientation Image", cv::WINDOW_NORMAL);
+  cv::resizeWindow("Orientation Image", gray_img.size());
+  cv::moveWindow("Orientation Image", 850, 410);
+  cv::imshow("Orientation Image", orientation_img);
+  cv::waitKey(0);
+#endif
 
   // Frequency Image Estimation
   cv::Mat frequency_img = estimateFrequency(normalized_img, orientation_img);
+#ifdef FP_DEBUG_VIS
+  cv::namedWindow("Frequency Image", cv::WINDOW_NORMAL);
+  cv::resizeWindow("Frequency Image", gray_img.size());
+  cv::moveWindow("Frequency Image", 1150, 410);
+  cv::imshow("Frequency Image", frequency_img);
+  cv::waitKey(0);
+#endif
 
   // Recoverability Check
   cv::Mat region_mask = generateRegionMask(gray_img);
   double RECOVERABLE_THRESHOLD = 40.0;
-  double recoverable_ratio =
-      cv::sum(region_mask / 255)[0] / (region_mask.rows * region_mask.cols) * 100.0;
-
+  double recoverable_ratio = cv::sum(region_mask / 255)[0] /
+                             (region_mask.rows * region_mask.cols) * 100.0;
   if (recoverable_ratio < RECOVERABLE_THRESHOLD) {
-    std::cout << "Image Rejected: Recoverable region is " <<
-    recoverable_ratio
-              << "% of the image, which is less than threshold: "
-              << RECOVERABLE_THRESHOLD << '%' << std::endl;
-    return cv::Mat();
+    std::cout << "Image Rejected: Recoverable region is " << recoverable_ratio
+              << "% of the image, which is less than threshold("
+              << RECOVERABLE_THRESHOLD << "%)" << std::endl;
+    dst = cv::Mat();
+    return;
   }
+#ifdef FP_DEBUG_VIS
+  cv::namedWindow("Region Mask", cv::WINDOW_NORMAL);
+  cv::moveWindow("Region Mask", 50, 410);
+  cv::imshow("Region Mask", region_mask);
+  cv::waitKey(0);
+  std::cout << "Recoverable region: " << recoverable_ratio << '%' << std::endl;
+#endif
 
   // Gabor Filtering
   cv::Mat enhanced_img;
-  applyGabor(normalized_img, enhanced_img, orientation_img, frequency_img, region_mask);
-
-#ifdef FP_DEBUG_VIS // Visualize Process
-  {
-    cv::imshow("Original", gray_img);
-    cv::waitKey(0);
-
-    cv::Mat norm_vis;
-    cv::convertScaleAbs(normalized_img, norm_vis);
-    cv::imshow("Normalized", norm_vis);
-    cv::waitKey(0);
-
-    showOrientation(gray_img, orientation_img);
-    cv::imshow("Orientation Image", orientation_img);
-    cv::waitKey(0);
-
-    cv::imshow("Frequency Image", frequency_img);
-    cv::waitKey(0);
-
-    cv::imshow("Region Mask", region_mask);
-    cv::waitKey(0);
-    std::cout << "Recoverable region: " << recoverable_ratio << '%'
-              << std::endl;
-
-    cv::imshow("Enhanced", enhanced_img);
-    cv::waitKey(0);
-  }
+  applyGabor(normalized_img, enhanced_img, orientation_img, frequency_img,
+             region_mask);
+#ifdef FP_DEBUG_VIS
+  cv::namedWindow("Enhanced Image", cv::WINDOW_NORMAL);
+  cv::moveWindow("Enhanced Image", 450, 410);
+  cv::imshow("Enhanced Image", enhanced_img);
+  cv::waitKey(0);
 #endif
 
-  return enhanced_img;
+  dst = enhanced_img;
+  return;
 }
 
 // === Preprocessing ===
@@ -82,28 +101,30 @@ void Enhancer::normalize(const cv::Mat &src, cv::Mat &dst, double dmean,
                          double dstd) const {
   CV_Assert(!src.empty());
 
-  cv::Mat srcF;
-  src.convertTo(srcF, CV_32FC1);
+  cv::Mat src_F;
+  src.convertTo(src_F, CV_32FC1);
 
   cv::Scalar m, s;
-  cv::meanStdDev(srcF, m, s);
+  cv::meanStdDev(src_F, m, s);
 
   double mean = m[0];
   double stddev = s[0];
 
   double scale = stddev == 0 ? 0 : dstd / stddev;
 
-  dst = (srcF - mean) * scale + dmean;
+  dst = (src_F - mean) * scale + dmean;
 }
 
 // === Orientation ===
-cv::Mat Enhancer::estimateOrientation(const cv::Mat &img) const {
+cv::Mat Enhancer::estimateOrientation(const cv::Mat &img,
+                                      int block_size) const {
   CV_Assert(!img.empty());
   CV_Assert(img.type() == CV_32FC1);
 
   // Compute gradients in the x and y directions of image
   cv::Mat grad_x, grad_y;
-  computeGradients(img, grad_x, grad_y);
+  cv::Scharr(img, grad_x, CV_32FC1, 1, 0);
+  cv::Scharr(img, grad_y, CV_32FC1, 0, 1);
 
   const int img_rows = img.rows;
   const int img_cols = img.cols;
@@ -149,19 +170,11 @@ cv::Mat Enhancer::estimateOrientation(const cv::Mat &img) const {
 
     for (int x = 0; x < ori_cols; x++) {
       float theta_s = 0.5f * atan2(phi_y_ptr[x], phi_x_ptr[x]);
-      smooth_orientation_img.at<float>(y,x) = theta_s;
+      smooth_orientation_img.at<float>(y, x) = theta_s;
     }
   }
 
   return smooth_orientation_img;
-}
-
-void Enhancer::computeGradients(const cv::Mat &img, cv::Mat &grad_x,
-                                cv::Mat &grad_y) const {
-  CV_Assert(!img.empty());
-
-  cv::Scharr(img, grad_x, CV_32FC1, 1, 0);
-  cv::Scharr(img, grad_y, CV_32FC1, 0, 1);
 }
 
 void Enhancer::convertSinCos(const cv::Mat &img, cv::Mat &sin_img,
@@ -184,7 +197,8 @@ void Enhancer::convertSinCos(const cv::Mat &img, cv::Mat &sin_img,
 
 // === Frequency ===
 cv::Mat Enhancer::estimateFrequency(const cv::Mat &img,
-                                    const cv::Mat &orientation_img) const {
+                                    const cv::Mat &orientation_img,
+                                    int block_size) const {
   CV_Assert(!img.empty());
   CV_Assert(!orientation_img.empty());
   CV_Assert(img.type() == CV_32FC1);
@@ -203,7 +217,7 @@ cv::Mat Enhancer::estimateFrequency(const cv::Mat &img,
       float cx = bx * block_size + block_size * 0.5f;
       float cy = by * block_size + block_size * 0.5f;
 
-      float freq = computeBlockFrequency(img, ori, cy, cx);
+      float freq = computeBlockFrequency(img, ori, cy, cx, block_size);
 
       frequency_img.at<float>(by, bx) = freq;
     }
@@ -234,29 +248,28 @@ cv::Mat Enhancer::estimateFrequency(const cv::Mat &img,
           }
         }
 
-          frequency_img.at<float>(by, bx) = weighted_sum / weight_sum;
+        frequency_img.at<float>(by, bx) = weighted_sum / weight_sum;
       }
     }
   }
 
-  //Perform smoothing to the frequency image
+  // Perform smoothing to the frequency image
   cv::GaussianBlur(frequency_img, frequency_img, cv::Size(7, 7), 0);
 
   return frequency_img;
 }
 
 float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
-                                      int cx) const {
-  CV_Assert(!img.empty());
-  CV_Assert(img.type() == CV_32FC1);
+                                      int cx, int block_size) const {
+#ifdef FP_DEBUG_VIS_FREQ
+  cv::Mat debug;
+  img.convertTo(debug, CV_8UC1, 255.0);
+  cv::cvtColor(debug, debug, cv::COLOR_GRAY2BGR);
+#endif
 
-// #ifdef FP_DEBUG_VIS
-//   cv::Mat debug;
-//   img.convertTo(debug, CV_8UC1, 255.0);
-//   cv::cvtColor(debug, debug, cv::COLOR_GRAY2BGR);
-// #endif
-
-  // Sample the gray values along the orthogonal direction of the ridge orientation
+  // Sample the gray values along the orthogonal direction of the ridge
+  // orientation
+  const int window_length = 2 * block_size;
   std::vector<float> x_sig(window_length, 0.f);
 
   float sin_ori = std::sin(ori);
@@ -277,18 +290,18 @@ float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
 
       sum += img.at<float>(u, v);
 
-// #ifdef FP_DEBUG_VIS
-//       cv::circle(debug, cv::Point(v, u), 1, cv::Scalar(0, 0, 255), -1);
-// #endif
+#ifdef FP_DEBUG_VIS_FREQ
+      cv::circle(debug, cv::Point(v, u), 1, cv::Scalar(0, 0, 255), -1);
+#endif
     }
 
     x_sig[k] = sum / block_size;
   }
 
-// #ifdef FP_DEBUG_VIS
-//   cv::imshow("Sampling Debug", debug);
-//   cv::waitKey(0);
-// #endif
+#ifdef FP_DEBUG_VIS_FREQ
+  cv::imshow("Sampling Debug", debug);
+  cv::waitKey(0);
+#endif
 
   // Estimate the period from the x-signature
   float T = estimatePeriod(x_sig);
@@ -305,9 +318,11 @@ float Enhancer::estimatePeriod(const std::vector<float> &x_sig) const {
   // Mean centering
   std::vector<float> sig = x_sig;
   float mean = 0.f;
-  for (float v : sig) mean += v;
+  for (float v : sig)
+    mean += v;
   mean /= sig.size();
-  for (float &v : sig) v -= mean;
+  for (float &v : sig)
+    v -= mean;
 
   // Find zero-crossings
   std::vector<int> zero_crossings;
@@ -345,7 +360,7 @@ cv::Mat Enhancer::generateRegionMask(const cv::Mat &gray_img) const {
   cv::Mat bin;
   cv::threshold(blur, bin, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
 
-  cv::Size ksize = cv::Size(31, 61);
+  cv::Size ksize(31, 61);
   cv::Mat se = cv::getStructuringElement(cv::MORPH_ELLIPSE, ksize);
 
   cv::Mat region_mask;
@@ -359,8 +374,8 @@ cv::Mat Enhancer::generateRegionMask(const cv::Mat &gray_img) const {
 void Enhancer::applyGabor(const cv::Mat &src, cv::Mat &dst,
                           const cv::Mat &orientation_img,
                           const cv::Mat &frequency_img,
-                          const cv::Mat &region_mask,
-                          float kx, float ky, int filter_size) const {
+                          const cv::Mat &region_mask, float kx, float ky,
+                          int filter_size) const {
   CV_Assert(!src.empty());
   CV_Assert(!orientation_img.empty());
   CV_Assert(!frequency_img.empty());
@@ -374,6 +389,9 @@ void Enhancer::applyGabor(const cv::Mat &src, cv::Mat &dst,
   cv::Mat ori_resized, freq_resized;
   cv::resize(orientation_img, ori_resized, src.size(), 0, 0, cv::INTER_NEAREST);
   cv::resize(frequency_img, freq_resized, src.size(), 0, 0, cv::INTER_NEAREST);
+
+  std::cout << ori_resized.at<float>(95, 296) << std::endl;
+  std::cout << freq_resized.at<float>(95, 296) << std::endl;
 
   // Extract unique frequencies
   std::set<float> freq_set;
@@ -397,19 +415,19 @@ void Enhancer::applyGabor(const cv::Mat &src, cv::Mat &dst,
   buildGaborFilterBank(unique_freqs, bank, kx, ky, filter_size);
 
   // Apply Gabor filter bank
-  applyGaborFilterBank(src, dst, ori_resized, freq_resized, freq_index_map, bank,
-                      filter_size);
+  applyGaborFilterBank(src, dst, ori_resized, freq_resized, region_mask,
+                       freq_index_map, bank, filter_size);
 }
 
-cv::Mat Enhancer::createGaborFilter(float frequency, float orientation, float kx,
-                          float ky, int filter_size) const {
+cv::Mat Enhancer::createGaborFilter(float freq, float ori, float kx, float ky,
+                                    int filter_size) const {
   cv::Mat gabor_filter(filter_size, filter_size, CV_32FC1);
 
-  float sigma_x = kx / frequency;
-  float sigma_y = ky / frequency;
+  float sigma_x = kx / freq;
+  float sigma_y = ky / freq;
 
-  float cos_phi = std::cos(orientation);
-  float sin_phi = std::sin(orientation);
+  float cos_phi = std::cos(ori);
+  float sin_phi = std::sin(ori);
 
   int half_size = filter_size / 2;
   for (int y = -half_size; y <= half_size; ++y) {
@@ -419,10 +437,9 @@ cv::Mat Enhancer::createGaborFilter(float frequency, float orientation, float kx
       float y_phi = -x * sin_phi + y * cos_phi;
 
       // Gabor formula
-      float exponent =
-          -0.5f * ((x_phi * x_phi) / (sigma_x * sigma_x) +
-                   (y_phi * y_phi) / (sigma_y * sigma_y));
-      float cosine = std::cos(2.0f * CV_PI * frequency * x_phi);
+      float exponent = -0.5f * ((x_phi * x_phi) / (sigma_x * sigma_x) +
+                                (y_phi * y_phi) / (sigma_y * sigma_y));
+      float cosine = std::cos(2.0f * CV_PI * freq * x_phi);
 
       gabor_filter.at<float>(y + half_size, x + half_size) =
           std::exp(exponent) * cosine;
@@ -432,8 +449,8 @@ cv::Mat Enhancer::createGaborFilter(float frequency, float orientation, float kx
 }
 
 void Enhancer::buildGaborFilterBank(const std::vector<float> &unique_freqs,
-                          std::vector<std::vector<cv::Mat>> &bank, float kx,
-                          float ky, int filter_size) const {
+                                    std::vector<std::vector<cv::Mat>> &bank,
+                                    float kx, float ky, int filter_size) const {
   int angle_increment = 3;
   int angle_steps = 180 / angle_increment;
 
@@ -447,12 +464,11 @@ void Enhancer::buildGaborFilterBank(const std::vector<float> &unique_freqs,
     }
   }
 }
-void Enhancer::applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
-                          const cv::Mat &ori_img_resized,
-                          const cv::Mat &freq_img_resized,
-                          const std::unordered_map<int, int> &freq_index_map,
-                          const std::vector<std::vector<cv::Mat>> &bank,
-                          int filter_size) const {
+void Enhancer::applyGaborFilterBank(
+    const cv::Mat &src, cv::Mat &dst, const cv::Mat &ori_img_resized,
+    const cv::Mat &freq_img_resized, const cv::Mat &region_mask,
+    const std::unordered_map<int, int> &freq_index_map,
+    const std::vector<std::vector<cv::Mat>> &bank, int filter_size) const {
   int rows = src.rows;
   int cols = src.cols;
 
@@ -461,8 +477,13 @@ void Enhancer::applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
 
   dst = cv::Mat::zeros(rows, cols, CV_32FC1);
 
-  for (int y = filter_size; y < rows - filter_size; ++y) {
-    for (int x = filter_size; x < cols - filter_size; ++x) {
+  for (int y = 0; y < rows; ++y) {
+    for (int x = 0; x < cols; ++x) {
+      if (region_mask.at<uchar>(y, x) == 0) {
+        dst.at<float>(y, x) = 255.f;
+        continue;
+      }
+
       float ori = ori_img_resized.at<float>(y, x);
       float freq = freq_img_resized.at<float>(y, x);
 
@@ -475,8 +496,9 @@ void Enhancer::applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
         continue;
 
       int fi = it->second;
-      int oi = static_cast<int>(std::round(ori * 180 / CV_PI / angle_increment)) %
-               angle_steps;
+      int oi =
+          static_cast<int>(std::round(ori * 180 / CV_PI / angle_increment)) %
+          angle_steps;
       if (oi < 0)
         oi += angle_steps;
 
@@ -485,9 +507,13 @@ void Enhancer::applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
       // Apply Gabor filter
       float sum = 0.f;
       for (int fy = -filter_size / 2; fy <= filter_size / 2; ++fy) {
+        if (y + fy < 0 || y + fy >= rows)
+          continue;
         const float *src_ptr = src.ptr<float>(y + fy);
         const float *filter_ptr = gabor_filter.ptr<float>(fy + filter_size / 2);
         for (int fx = -filter_size / 2; fx <= filter_size / 2; ++fx) {
+          if (x + fx < 0 || x + fx >= cols)
+            continue;
           sum += src_ptr[x + fx] * filter_ptr[fx + filter_size / 2];
         }
       }
@@ -499,14 +525,17 @@ void Enhancer::applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
 
 // === Debug/Visualization ===
 void Enhancer::showOrientation(const cv::Mat &bg_img,
-                               const cv::Mat &orientation_img,
+                               const cv::Mat &orientation_img, int block_size,
                                const char *winname) const {
   CV_Assert(!bg_img.empty());
   CV_Assert(!orientation_img.empty());
   CV_Assert(orientation_img.type() == CV_32FC1);
 
-  cv::Mat vis = bg_img.clone();
-  cv::cvtColor(vis, vis, cv::COLOR_GRAY2BGR);
+  cv::Mat vis_img = bg_img.clone();
+  cv::cvtColor(vis_img, vis_img, cv::COLOR_GRAY2BGR);
+
+  cv::namedWindow(winname, cv::WINDOW_NORMAL);
+  cv::moveWindow(winname, 850, 50);
 
   const int ori_rows = orientation_img.rows;
   const int ori_cols = orientation_img.cols;
@@ -533,11 +562,11 @@ void Enhancer::showOrientation(const cv::Mat &bg_img,
                    cv::saturate_cast<int>(std::round(cy - dy)));
 
       // draw line
-      cv::line(vis, p1, p2, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+      cv::line(vis_img, p1, p2, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
     }
   }
 
-  cv::imshow(winname, vis);
+  cv::imshow(winname, vis_img);
   cv::waitKey(1);
 }
 
