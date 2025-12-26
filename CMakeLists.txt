@@ -1,19 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(FingerprintMatching CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-# set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 # ---- OpenCV ----
 find_package(OpenCV REQUIRED)
-
-# ---- Include directories ----
-include_directories(
-    ${OpenCV_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/include
-)
 
 # ---- Library: fingerprint_core ----
 add_library(fingerprint_core
@@ -22,34 +11,28 @@ add_library(fingerprint_core
     src/matching.cpp
 )
 
-target_link_libraries(fingerprint_core
-    ${OpenCV_LIBS}
-)
-
+target_link_libraries(fingerprint_core ${OpenCV_LIBS})
 target_include_directories(fingerprint_core PUBLIC
-    ${CMAKE_SOURCE_DIR}/include
+    ${OpenCV_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# ---- Executable: main pipeline ----
-add_executable(fingerprint_app
-    src/main.cpp
-)
-
-target_link_libraries(fingerprint_app
-    fingerprint_core
-)
-
-# ---- Tests ----
-# option(BUILD_TESTS "Build tests" ON)
-
-# if(BUILD_TESTS)
-#     enable_testing()
-#     add_subdirectory(tests)
-# endif()
+# ---- Executable ----
+add_executable(fingerprint_app src/main.cpp)
+target_link_libraries(fingerprint_app PRIVATE fingerprint_core)
 
 # ---- Macros ----
-add_definitions(-DDATA_DIR="${CMAKE_SOURCE_DIR}/data")
-# add_definitions(-DFP_DEBUG_VIS)
+target_compile_definitions(fingerprint_core PUBLIC
+    DATA_DIR="${CMAKE_SOURCE_DIR}/data"
+)
+
+# --- Debug Visualizations ----
+option(ENABLE_DEBUG_VIS "Enable visualization for debugging" OFF)
+if(ENABLE_DEBUG_VIS)
+    target_compile_definitions(fingerprint_core PUBLIC FP_DEBUG_VIS)
+    # target_compile_definitions(fingerprint_core PUBLIC FP_DEBUG_VIS_FREQ)
+    message(STATUS ">>> Debug visualization macro (FP_DEBUG_VIS) is ENABLED")
+endif()
 
 # ---- Others ----
 add_subdirectory(test)
