@@ -6,6 +6,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/ximgproc.hpp>
 
 namespace fp {
 
@@ -25,7 +26,6 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
   cv::namedWindow("Original", cv::WINDOW_NORMAL);
   cv::moveWindow("Original", 50, 50);
   cv::imshow("Original", gray_img);
-  cv::waitKey(0);
 #endif
 
   // Normalization
@@ -37,28 +37,26 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
   cv::namedWindow("Normalized", cv::WINDOW_NORMAL);
   cv::moveWindow("Normalized", 450, 50);
   cv::imshow("Normalized", norm_vis_img);
-  cv::waitKey(0);
 #endif
 
   // Orientation Image Estimation
-  cv::Mat orientation_img = estimateRidgeOrientation(normalized_img);
+  cv::Mat orientation_img = estimateRidgeOrientation(normalized_img, 10);
 #ifdef FP_DEBUG_VIS
-  showOrientation(gray_img, orientation_img);
+  showOrientation(gray_img, orientation_img, 10);
   cv::namedWindow("Orientation Image", cv::WINDOW_NORMAL);
   cv::resizeWindow("Orientation Image", gray_img.size());
   cv::moveWindow("Orientation Image", 850, 410);
   cv::imshow("Orientation Image", orientation_img);
-  cv::waitKey(0);
 #endif
 
   // Frequency Image Estimation
   cv::Mat frequency_img = estimateRidgeFrequency(normalized_img, orientation_img);
+  // cv::Mat frequency_img = cv::Mat::ones(orientation_img.rows, orientation_img.cols, CV_32FC1) * 0.11f;
 #ifdef FP_DEBUG_VIS
   cv::namedWindow("Frequency Image", cv::WINDOW_NORMAL);
   cv::resizeWindow("Frequency Image", gray_img.size());
   cv::moveWindow("Frequency Image", 1150, 410);
   cv::imshow("Frequency Image", frequency_img);
-  cv::waitKey(0);
 #endif
 
   // Recoverability Check
@@ -77,7 +75,6 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
   cv::namedWindow("Region Mask", cv::WINDOW_NORMAL);
   cv::moveWindow("Region Mask", 50, 410);
   cv::imshow("Region Mask", region_mask);
-  cv::waitKey(0);
   std::cout << "Recoverable region: " << recoverable_ratio << '%' << std::endl;
 #endif
 
@@ -92,7 +89,36 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
   cv::waitKey(0);
 #endif
 
-  dst = enhanced_img;
+  enhanced_img.convertTo(dst, CV_8UC1);
+  return;
+}
+
+void Enhancer::thin(const cv::Mat &src, cv::Mat &dst) const {
+  if (src.empty()) {
+    std::cerr << "Input image is empty!" << std::endl;
+    dst = cv::Mat();
+    return;
+  }
+
+  cv::Mat binary_img;
+  cv::threshold(src, binary_img, 127, 255, cv::THRESH_BINARY);
+
+  cv::Mat inverted_img;
+  cv::bitwise_not(binary_img, inverted_img);
+
+  cv::Mat thinned_img;
+  cv::ximgproc::thinning(inverted_img, thinned_img, cv::ximgproc::THINNING_ZHANGSUEN);
+
+  cv::Mat reinverted_img;
+  cv::bitwise_not(thinned_img, reinverted_img);
+#ifdef FP_DEBUG_VIS
+  cv::namedWindow("Thinned Image", cv::WINDOW_NORMAL);
+  cv::moveWindow("Thinned Image", 450, 750);
+  cv::imshow("Thinned Image", reinverted_img);
+  cv::waitKey(0);
+#endif
+
+  dst = reinverted_img;
   return;
 }
 
@@ -354,8 +380,11 @@ cv::Mat Enhancer::generateRegionMask(const cv::Mat &gray_img) const {
   CV_Assert(!gray_img.empty());
   CV_Assert(gray_img.type() == CV_8UC1);
 
+  cv::Mat norm_img;
+  cv::normalize(gray_img, norm_img, 0, 255, cv::NORM_MINMAX);
+
   cv::Mat blur;
-  cv::GaussianBlur(gray_img, blur, cv::Size(7, 7), 0);
+  cv::GaussianBlur(norm_img, blur, cv::Size(7, 7), 0);
 
   cv::Mat bin;
   cv::threshold(blur, bin, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);

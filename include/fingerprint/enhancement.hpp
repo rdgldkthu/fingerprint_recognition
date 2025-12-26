@@ -8,6 +8,7 @@ public:
   Enhancer() {}
 
   void enhance(const cv::Mat &src, cv::Mat &dst) const;
+  void thin(const cv::Mat &src, cv::Mat &dst) const;
 
 private:
   // === Preprocessing ===
