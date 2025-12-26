@@ -41,7 +41,7 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
 #endif
 
   // Orientation Image Estimation
-  cv::Mat orientation_img = estimateOrientation(normalized_img);
+  cv::Mat orientation_img = estimateRidgeOrientation(normalized_img);
 #ifdef FP_DEBUG_VIS
   showOrientation(gray_img, orientation_img);
   cv::namedWindow("Orientation Image", cv::WINDOW_NORMAL);
@@ -52,7 +52,7 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
 #endif
 
   // Frequency Image Estimation
-  cv::Mat frequency_img = estimateFrequency(normalized_img, orientation_img);
+  cv::Mat frequency_img = estimateRidgeFrequency(normalized_img, orientation_img);
 #ifdef FP_DEBUG_VIS
   cv::namedWindow("Frequency Image", cv::WINDOW_NORMAL);
   cv::resizeWindow("Frequency Image", gray_img.size());
@@ -116,7 +116,7 @@ void Enhancer::normalize(const cv::Mat &src, cv::Mat &dst, double dmean,
 }
 
 // === Orientation ===
-cv::Mat Enhancer::estimateOrientation(const cv::Mat &img,
+cv::Mat Enhancer::estimateRidgeOrientation(const cv::Mat &img,
                                       int block_size) const {
   CV_Assert(!img.empty());
   CV_Assert(img.type() == CV_32FC1);
@@ -159,7 +159,7 @@ cv::Mat Enhancer::estimateOrientation(const cv::Mat &img,
   cv::Mat phi_y(ori_rows, ori_cols, CV_32FC1);
   cv::Mat phi_x(ori_rows, ori_cols, CV_32FC1);
 
-  convertSinCos(2 * orientation_img, phi_y, phi_x);
+  convert2SinCosImg(2 * orientation_img, phi_y, phi_x);
 
   cv::GaussianBlur(phi_y, phi_y, cv::Size(5, 5), 3);
   cv::GaussianBlur(phi_x, phi_x, cv::Size(5, 5), 3);
@@ -177,7 +177,7 @@ cv::Mat Enhancer::estimateOrientation(const cv::Mat &img,
   return smooth_orientation_img;
 }
 
-void Enhancer::convertSinCos(const cv::Mat &img, cv::Mat &sin_img,
+void Enhancer::convert2SinCosImg(const cv::Mat &img, cv::Mat &sin_img,
                              cv::Mat &cos_img) const {
   CV_Assert(!img.empty());
 
@@ -196,7 +196,7 @@ void Enhancer::convertSinCos(const cv::Mat &img, cv::Mat &sin_img,
 }
 
 // === Frequency ===
-cv::Mat Enhancer::estimateFrequency(const cv::Mat &img,
+cv::Mat Enhancer::estimateRidgeFrequency(const cv::Mat &img,
                                     const cv::Mat &orientation_img,
                                     int block_size) const {
   CV_Assert(!img.empty());
@@ -304,7 +304,7 @@ float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
 #endif
 
   // Estimate the period from the x-signature
-  float T = estimatePeriod(x_sig);
+  float T = estimatePeriodFromXSignature(x_sig);
   if (T < 3.0f || T > 25.0f)
     return -1.f;
 
@@ -314,7 +314,7 @@ float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
   return freq;
 }
 
-float Enhancer::estimatePeriod(const std::vector<float> &x_sig) const {
+float Enhancer::estimatePeriodFromXSignature(const std::vector<float> &x_sig) const {
   // Mean centering
   std::vector<float> sig = x_sig;
   float mean = 0.f;
@@ -464,6 +464,7 @@ void Enhancer::buildGaborFilterBank(const std::vector<float> &unique_freqs,
     }
   }
 }
+
 void Enhancer::applyGaborFilterBank(
     const cv::Mat &src, cv::Mat &dst, const cv::Mat &ori_img_resized,
     const cv::Mat &freq_img_resized, const cv::Mat &region_mask,

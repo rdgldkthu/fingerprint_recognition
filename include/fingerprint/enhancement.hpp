@@ -15,16 +15,16 @@ private:
                  double dstd0 = 100) const;
 
   // === Orientation ===
-  cv::Mat estimateOrientation(const cv::Mat &img, int block_size = 16) const;
-  void convertSinCos(const cv::Mat &img, cv::Mat &sin_img,
+  cv::Mat estimateRidgeOrientation(const cv::Mat &img, int block_size = 16) const;
+  void convert2SinCosImg(const cv::Mat &img, cv::Mat &sin_img,
                      cv::Mat &cos_img) const;
 
   // === Frequency ===
-  cv::Mat estimateFrequency(const cv::Mat &img, const cv::Mat &orientation_img,
+  cv::Mat estimateRidgeFrequency(const cv::Mat &img, const cv::Mat &orientation_img,
                             int block_size = 16) const;
   float computeBlockFrequency(const cv::Mat &img, float ori, int cy, int cx,
                               int block_size) const;
-  float estimatePeriod(const std::vector<float> &x_sig) const;
+  float estimatePeriodFromXSignature(const std::vector<float> &x_sig) const;
 
   // === Region Mask ===
   cv::Mat generateRegionMask(const cv::Mat &img) const;
