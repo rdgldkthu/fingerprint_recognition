@@ -7,8 +7,7 @@ find_package(OpenCV REQUIRED)
 # ---- Library: fingerprint_core ----
 add_library(fingerprint_core
     src/enhancement.cpp
-    src/feature_detection.cpp
-    src/matching.cpp
+    src/features.cpp
 )
 
 target_link_libraries(fingerprint_core ${OpenCV_LIBS})
@@ -30,7 +29,6 @@ target_compile_definitions(fingerprint_core PUBLIC
 option(ENABLE_DEBUG_VIS "Enable visualization for debugging" OFF)
 if(ENABLE_DEBUG_VIS)
     target_compile_definitions(fingerprint_core PUBLIC FP_DEBUG_VIS)
-    # target_compile_definitions(fingerprint_core PUBLIC FP_DEBUG_VIS_FREQ)
     message(STATUS ">>> Debug visualization macro (FP_DEBUG_VIS) is ENABLED")
 endif()
 

@@ -287,12 +287,6 @@ cv::Mat Enhancer::estimateRidgeFrequency(const cv::Mat &img,
 
 float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
                                       int cx, int block_size) const {
-#ifdef FP_DEBUG_VIS_FREQ
-  cv::Mat debug;
-  img.convertTo(debug, CV_8UC1, 255.0);
-  cv::cvtColor(debug, debug, cv::COLOR_GRAY2BGR);
-#endif
-
   // Sample the gray values along the orthogonal direction of the ridge
   // orientation
   const int window_length = 2 * block_size;
@@ -315,19 +309,10 @@ float Enhancer::computeBlockFrequency(const cv::Mat &img, float ori, int cy,
         continue;
 
       sum += img.at<float>(u, v);
-
-#ifdef FP_DEBUG_VIS_FREQ
-      cv::circle(debug, cv::Point(v, u), 1, cv::Scalar(0, 0, 255), -1);
-#endif
     }
 
     x_sig[k] = sum / block_size;
   }
-
-#ifdef FP_DEBUG_VIS_FREQ
-  cv::imshow("Sampling Debug", debug);
-  cv::waitKey(0);
-#endif
 
   // Estimate the period from the x-signature
   float T = estimatePeriodFromXSignature(x_sig);
