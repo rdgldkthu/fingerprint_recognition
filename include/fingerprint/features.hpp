@@ -9,7 +9,9 @@ class Detector {
 public:
   Detector() = default;
 
-  std::vector<Minutia> detect(const cv::Mat &enhanced_img, const cv::Mat &orientation) const;
+  std::vector<Minutia> detect(const cv::Mat &enhanced_img,
+                              const cv::Mat &orientation,
+                              const cv::Mat &mask) const;
 
 private:
   void thin(const cv::Mat &src, cv::Mat &dst) const;

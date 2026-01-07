@@ -1,4 +1,5 @@
 #include "fingerprint/features.hpp"
+#include "fingerprint/core/types.hpp"
 #include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -62,12 +63,43 @@ bool pruneBifurcation(const std::vector<float> &dirs, float theta_f) {
   return valid >= 2;
 }
 
+cv::Mat computeMaskDistance(const cv::Mat &mask) {
+  CV_Assert(mask.type() == CV_8UC1);
+
+  cv::Mat dist;
+  cv::distanceTransform(mask, dist, cv::DIST_L2, 3);
+
+  return dist;
 }
+
+void pruneByMaskDistance(std::vector<fp::Minutia> &minutiae,
+                         const cv::Mat &mask_dist, float min_dist = 8.0f) {
+  std::vector<fp::Minutia> pruned;
+  pruned.reserve(minutiae.size());
+
+  for (const auto &m : minutiae) {
+
+    if (m.type == fp::MinutiaType::ENDING) {
+
+      float d = mask_dist.at<float>(m.y, m.x);
+      if (d < min_dist)
+        continue;
+    }
+
+    pruned.push_back(m);
+  }
+
+  minutiae.swap(pruned);
+}
+
+} // namespace
 
 namespace fp {
 
 /// Feature Detection
-std::vector<Minutia> Detector::detect(const cv::Mat &enhanced_img, const cv::Mat &orientation) const {
+std::vector<Minutia> Detector::detect(const cv::Mat &enhanced_img,
+                                      const cv::Mat &orientation,
+                                      const cv::Mat &mask) const {
   std::vector<Minutia> minutiae;
   if (enhanced_img.empty()) {
     std::cerr << "Input image is empty!" << std::endl;
@@ -78,6 +110,10 @@ std::vector<Minutia> Detector::detect(const cv::Mat &enhanced_img, const cv::Mat
   thin(enhanced_img, thinned_img);
 
   minutiae = detectMinutiae(thinned_img, orientation);
+
+  cv::Mat mask_dist = computeMaskDistance(mask);
+
+  pruneByMaskDistance(minutiae, mask_dist);
 
 #ifdef FP_DEBUG_VIS
   cv::Mat vis = visualizeMinutiae(thinned_img, minutiae);
@@ -117,13 +153,15 @@ void Detector::thin(const cv::Mat &src, cv::Mat &dst) const {
 
 // 0=ridge, 255=background
 // CV_32F, radian
-std::vector<Minutia> Detector::detectMinutiae(const cv::Mat &skeleton,
-                                     const cv::Mat &orientation) const {
+std::vector<Minutia>
+Detector::detectMinutiae(const cv::Mat &skeleton,
+                         const cv::Mat &orientation) const {
   CV_Assert(skeleton.type() == CV_8UC1);
   CV_Assert(orientation.type() == CV_32F);
 
   cv::Mat ori_resized;
-  cv::resize(orientation, ori_resized, skeleton.size(), 0, 0, cv::INTER_NEAREST);
+  cv::resize(orientation, ori_resized, skeleton.size(), 0, 0,
+             cv::INTER_NEAREST);
 
   std::vector<Minutia> minutiae;
 
@@ -162,8 +200,8 @@ std::vector<Minutia> Detector::detectMinutiae(const cv::Mat &skeleton,
 }
 
 cv::Mat Detector::visualizeMinutiae(const cv::Mat &enhanced,
-                          const std::vector<Minutia> &minutiae, int radius,
-                          int arrow_len) const {
+                                    const std::vector<Minutia> &minutiae,
+                                    int radius, int arrow_len) const {
   CV_Assert(enhanced.type() == CV_8UC1);
 
   cv::Mat vis;
