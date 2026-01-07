@@ -3,12 +3,18 @@
 
 namespace fp {
 
+struct EnhancementResult {
+  cv::Mat enhanced_img;     // enhanced binary image
+  cv::Mat orientation_img;  // CV_32F, radian, block-wise
+  cv::Mat frequency_img;    // CV_32F
+  cv::Mat mask;             // CV_8U
+};
+
 class Enhancer {
 public:
-  Enhancer() {}
+  Enhancer() = default;
 
-  void enhance(const cv::Mat &src, cv::Mat &dst) const;
-  void thin(const cv::Mat &src, cv::Mat &dst) const;
+  EnhancementResult enhance(const cv::Mat &img) const;
 
 private:
   // === Preprocessing ===

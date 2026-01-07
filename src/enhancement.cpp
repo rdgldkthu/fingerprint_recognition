@@ -10,18 +10,17 @@
 
 namespace fp {
 
-void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
-  if (src.empty()) {
+EnhancementResult Enhancer::enhance(const cv::Mat &img) const {
+  if (img.empty()) {
     std::cerr << "Input image is empty!" << std::endl;
-    dst = cv::Mat();
-    return;
+    return EnhancementResult();
   }
 
   cv::Mat gray_img;
-  if (src.channels() == 3)
-    cv::cvtColor(src, gray_img, cv::COLOR_BGR2GRAY);
+  if (img.channels() == 3)
+    cv::cvtColor(img, gray_img, cv::COLOR_BGR2GRAY);
   else
-    gray_img = src.clone();
+    gray_img = img.clone();
 #ifdef FP_DEBUG_VIS
   cv::namedWindow("Original", cv::WINDOW_NORMAL);
   cv::moveWindow("Original", 50, 50);
@@ -68,8 +67,7 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
     std::cout << "Image Rejected: Recoverable region is " << recoverable_ratio
               << "% of the image, which is less than threshold("
               << RECOVERABLE_THRESHOLD << "%)" << std::endl;
-    dst = cv::Mat();
-    return;
+    return EnhancementResult();
   }
 #ifdef FP_DEBUG_VIS
   cv::namedWindow("Region Mask", cv::WINDOW_NORMAL);
@@ -89,37 +87,8 @@ void Enhancer::enhance(const cv::Mat &src, cv::Mat &dst) const {
   cv::waitKey(0);
 #endif
 
-  enhanced_img.convertTo(dst, CV_8UC1);
-  return;
-}
-
-void Enhancer::thin(const cv::Mat &src, cv::Mat &dst) const {
-  if (src.empty()) {
-    std::cerr << "Input image is empty!" << std::endl;
-    dst = cv::Mat();
-    return;
-  }
-
-  cv::Mat binary_img;
-  cv::threshold(src, binary_img, 127, 255, cv::THRESH_BINARY);
-
-  cv::Mat inverted_img;
-  cv::bitwise_not(binary_img, inverted_img);
-
-  cv::Mat thinned_img;
-  cv::ximgproc::thinning(inverted_img, thinned_img, cv::ximgproc::THINNING_ZHANGSUEN);
-
-  cv::Mat reinverted_img;
-  cv::bitwise_not(thinned_img, reinverted_img);
-#ifdef FP_DEBUG_VIS
-  cv::namedWindow("Thinned Image", cv::WINDOW_NORMAL);
-  cv::moveWindow("Thinned Image", 450, 750);
-  cv::imshow("Thinned Image", reinverted_img);
-  cv::waitKey(0);
-#endif
-
-  dst = reinverted_img;
-  return;
+  enhanced_img.convertTo(enhanced_img, CV_8UC1);
+  return {enhanced_img, orientation_img, frequency_img, region_mask};
 }
 
 // === Preprocessing ===
