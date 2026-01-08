@@ -1,18 +1,8 @@
-#include "fingerprint/features.hpp"
-#include "fingerprint/core/types.hpp"
-#include <iostream>
-#include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
+#include "fingerprint/core/minutiae.hpp"
+#include "fingerprint/core/utility.hpp"
 #include <opencv2/imgproc.hpp>
-#include <opencv2/ximgproc.hpp>
 
-/// Internal Utility Functions
 namespace {
-
-inline float angleDiff(float a, float b) {
-  float d = std::fabs(a - b);
-  return std::min(d, float(CV_PI) - d);
-}
 
 int crossingNumber(const cv::Mat &win) {
   static const int dx[8] = {0, -1, -1, -1, 0, 1, 1, 1};
@@ -51,13 +41,13 @@ std::vector<float> computeBifurcationDirections(const cv::Mat &win) {
 }
 
 bool pruneEnding(float theta_m, float theta_f) {
-  return angleDiff(theta_m, theta_f) < CV_PI / 6; // 30 deg
+  return fp::angleDiff(theta_m, theta_f) < CV_PI / 6; // 30 deg
 }
 
 bool pruneBifurcation(const std::vector<float> &dirs, float theta_f) {
   int valid = 0;
   for (float d : dirs) {
-    if (angleDiff(d, theta_f) < CV_PI / 6)
+    if (fp::angleDiff(d, theta_f) < CV_PI / 6)
       valid++;
   }
   return valid >= 2;
@@ -91,71 +81,15 @@ void pruneByMaskDistance(std::vector<fp::Minutia> &minutiae,
 
   minutiae.swap(pruned);
 }
-
 } // namespace
 
 namespace fp {
 
-/// Feature Detection
-std::vector<Minutia> Detector::detect(const cv::Mat &enhanced_img,
-                                      const cv::Mat &orientation,
-                                      const cv::Mat &mask) const {
-  std::vector<Minutia> minutiae;
-  if (enhanced_img.empty()) {
-    std::cerr << "Input image is empty!" << std::endl;
-    return minutiae;
-  }
-
-  cv::Mat thinned_img;
-  thin(enhanced_img, thinned_img);
-
-  minutiae = detectMinutiae(thinned_img, orientation);
-
-  cv::Mat mask_dist = computeMaskDistance(mask);
-
-  pruneByMaskDistance(minutiae, mask_dist);
-
-#ifdef FP_DEBUG_VIS
-  cv::Mat vis = visualizeMinutiae(thinned_img, minutiae);
-  cv::namedWindow("Visualize Minutiae", cv::WINDOW_NORMAL);
-  cv::moveWindow("Visualize Minutiae", 450, 750);
-  cv::imshow("Visualize Minutiae", vis);
-  cv::waitKey(0);
-#endif
-
-  return minutiae;
-}
-
-void Detector::thin(const cv::Mat &src, cv::Mat &dst) const {
-  CV_Assert(!src.empty());
-
-  cv::Mat binary_img;
-  cv::threshold(src, binary_img, 127, 255, cv::THRESH_BINARY);
-
-  cv::Mat inverted_img;
-  cv::bitwise_not(binary_img, inverted_img);
-
-  cv::Mat thinned_img;
-  cv::ximgproc::thinning(inverted_img, thinned_img,
-                         cv::ximgproc::THINNING_ZHANGSUEN);
-
-  cv::Mat reinverted_img;
-  cv::bitwise_not(thinned_img, reinverted_img);
-#ifdef FP_DEBUG_VIS
-  cv::namedWindow("Thinned Image", cv::WINDOW_NORMAL);
-  cv::moveWindow("Thinned Image", 50, 750);
-  cv::imshow("Thinned Image", reinverted_img);
-#endif
-
-  dst = reinverted_img;
-  return;
-}
-
 // 0=ridge, 255=background
 // CV_32F, radian
-std::vector<Minutia>
-Detector::detectMinutiae(const cv::Mat &skeleton,
-                         const cv::Mat &orientation) const {
+std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
+                                    const cv::Mat &orientation,
+                                    const cv::Mat &mask) {
   CV_Assert(skeleton.type() == CV_8UC1);
   CV_Assert(orientation.type() == CV_32F);
 
@@ -196,12 +130,17 @@ Detector::detectMinutiae(const cv::Mat &skeleton,
       }
     }
   }
+
+  cv::Mat mask_dist = computeMaskDistance(mask);
+
+  pruneByMaskDistance(minutiae, mask_dist);
+
   return minutiae;
 }
 
-cv::Mat Detector::visualizeMinutiae(const cv::Mat &enhanced,
-                                    const std::vector<Minutia> &minutiae,
-                                    int radius, int arrow_len) const {
+cv::Mat visualizeMinutiae(const cv::Mat &enhanced,
+                          const std::vector<Minutia> &minutiae, int radius,
+                          int arrow_len) {
   CV_Assert(enhanced.type() == CV_8UC1);
 
   cv::Mat vis;
@@ -228,5 +167,4 @@ cv::Mat Detector::visualizeMinutiae(const cv::Mat &enhanced,
 
   return vis;
 }
-
 } // namespace fp

@@ -6,8 +6,16 @@ find_package(OpenCV REQUIRED)
 
 # ---- Library: fingerprint_core ----
 add_library(fingerprint_core
-    src/enhancement.cpp
-    src/features.cpp
+    src/core/frequency.cpp
+    src/core/gabor.cpp
+    src/core/minutiae.cpp
+    src/core/orientation.cpp
+    src/core/roi.cpp
+    src/core/skeleton.cpp
+    src/core/utility.cpp
+    src/enhancement/enhancement.cpp
+    src/features/detection.cpp
+    src/features/matching.cpp
 )
 
 target_link_libraries(fingerprint_core ${OpenCV_LIBS})

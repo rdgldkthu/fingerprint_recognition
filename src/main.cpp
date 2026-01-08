@@ -1,5 +1,5 @@
-#include "fingerprint/enhancement.hpp"
-#include "fingerprint/features.hpp"
+#include "fingerprint/enhancement/enhancement.hpp"
+#include "fingerprint/features/detection.hpp"
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
