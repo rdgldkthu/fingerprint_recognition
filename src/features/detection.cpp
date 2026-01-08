@@ -1,5 +1,5 @@
 #include "fingerprint/features/detection.hpp"
-#include "fingerprint/core/minutiae.hpp"
+#include "fingerprint/features/minutiae.hpp"
 #include "fingerprint/core/skeleton.hpp"
 #include "fingerprint/core/types.hpp"
 #include <iostream>

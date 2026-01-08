@@ -8,7 +8,6 @@ find_package(OpenCV REQUIRED)
 add_library(fingerprint_core
     src/core/frequency.cpp
     src/core/gabor.cpp
-    src/core/minutiae.cpp
     src/core/orientation.cpp
     src/core/roi.cpp
     src/core/skeleton.cpp
@@ -16,6 +15,7 @@ add_library(fingerprint_core
     src/enhancement/enhancement.cpp
     src/features/detection.cpp
     src/features/matching.cpp
+    src/features/minutiae.cpp
 )
 
 target_link_libraries(fingerprint_core ${OpenCV_LIBS})

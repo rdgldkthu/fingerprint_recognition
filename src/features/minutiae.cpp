@@ -1,4 +1,4 @@
-#include "fingerprint/core/minutiae.hpp"
+#include "fingerprint/features/minutiae.hpp"
 #include "fingerprint/core/utility.hpp"
 #include <opencv2/imgproc.hpp>
 
