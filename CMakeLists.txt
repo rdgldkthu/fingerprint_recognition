@@ -15,7 +15,7 @@ add_library(fingerprint_core
     src/core/utility.cpp
     src/enhancement/enhancement.cpp
     src/features/detection.cpp
-    src/features/matching.cpp
+    src/features/mcc.cpp
 )
 
 target_link_libraries(fingerprint_core ${OpenCV_LIBS})
