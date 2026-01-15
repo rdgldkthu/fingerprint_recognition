@@ -133,9 +133,6 @@ void applyGaborFilter(const cv::Mat &src, cv::Mat &dst,
   cv::resize(orientation_img, ori_resized, src.size(), 0, 0, cv::INTER_NEAREST);
   cv::resize(frequency_img, freq_resized, src.size(), 0, 0, cv::INTER_NEAREST);
 
-  std::cout << ori_resized.at<float>(95, 296) << std::endl;
-  std::cout << freq_resized.at<float>(95, 296) << std::endl;
-
   // Extract unique frequencies
   std::set<float> freq_set;
   for (int y = 0; y < freq_resized.rows; ++y) {
