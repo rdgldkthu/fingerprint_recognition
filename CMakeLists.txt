@@ -12,7 +12,6 @@ add_library(fingerprint_core
     src/core/orientation.cpp
     src/core/roi.cpp
     src/core/skeleton.cpp
-    src/core/utility.cpp
     src/enhancement/enhancement.cpp
     src/features/detection.cpp
     src/features/mcc.cpp

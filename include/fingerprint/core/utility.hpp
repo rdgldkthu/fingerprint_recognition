@@ -3,9 +3,9 @@
 
 namespace fp {
 
-void normalizeImage(const cv::Mat &src, cv::Mat &dst, double dmean,
-                    double dstd);
-
-float angleDiff(float a, float b);
+inline float angleDiff(float a, float b) {
+  float d = std::fabs(a - b);
+  return std::min(d, float(CV_PI) - d);
+}
 
 } // namespace fp

@@ -3,11 +3,32 @@
 #include "fingerprint/core/gabor.hpp"
 #include "fingerprint/core/orientation.hpp"
 #include "fingerprint/core/roi.hpp"
-#include "fingerprint/core/utility.hpp"
 #include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+
+namespace {
+
+void normalizeImage(const cv::Mat &src, cv::Mat &dst, double dmean,
+                    double dstd) {
+  CV_Assert(!src.empty());
+
+  cv::Mat src_F;
+  src.convertTo(src_F, CV_32FC1);
+
+  cv::Scalar m, s;
+  cv::meanStdDev(src_F, m, s);
+
+  double mean = m[0];
+  double stddev = s[0];
+
+  double scale = stddev == 0 ? 0 : dstd / stddev;
+
+  dst = (src_F - mean) * scale + dmean;
+}
+
+}
 
 namespace fp {
 
