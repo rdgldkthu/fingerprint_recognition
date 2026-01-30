@@ -81,6 +81,27 @@ void pruneByMaskDistance(std::vector<fp::Minutia> &minutiae,
 
   minutiae.swap(pruned);
 }
+
+inline bool isNearImageBorder(int x, int y, int width, int height, int margin) {
+  return (x < margin || y < margin || x >= width - margin ||
+          y >= height - margin);
+}
+
+void pruneByImageBorder(std::vector<fp::Minutia> &minutiae, int width, int height,
+                        int margin) {
+  std::vector<fp::Minutia> pruned;
+  pruned.reserve(minutiae.size());
+
+  for (const auto &m : minutiae) {
+
+    if (isNearImageBorder(m.x, m.y, width, height, margin)) continue;
+
+    pruned.push_back(m);
+  }
+
+  minutiae.swap(pruned);
+}
+
 } // namespace
 
 namespace fp {
@@ -134,6 +155,8 @@ std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
   cv::Mat mask_dist = computeMaskDistance(mask);
 
   pruneByMaskDistance(minutiae, mask_dist);
+
+  pruneByImageBorder(minutiae, mask.cols, mask.rows, 10);
 
   return minutiae;
 }
