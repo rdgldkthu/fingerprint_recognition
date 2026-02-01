@@ -11,10 +11,15 @@
 
 int main(int argc, char **argv) {
   // Read Fingerprint Images
-  std::string img_path1 = std::string(DATA_DIR) + "/raw/101_1.tif";
-  std::string img_path2 = std::string(DATA_DIR) + "/raw/101_2.tif";
+  std::string img_path1 = std::string(DATA_DIR) + "/raw/104_3.tif";
+  std::string img_path2 = std::string(DATA_DIR) + "/raw/104_7.tif";
   cv::Mat img1 = cv::imread(img_path1, cv::IMREAD_GRAYSCALE);
   cv::Mat img2 = cv::imread(img_path2, cv::IMREAD_GRAYSCALE);
+
+  if (!img1.empty())
+    std::cout << img_path1 << " read successfully" << std::endl;
+  if (!img2.empty())
+    std::cout << img_path2 << " read successfully" << std::endl;
 
   // Initialization
   fp::Enhancer enhancer;

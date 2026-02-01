@@ -57,25 +57,31 @@ EnhancementResult Enhancer::enhance(const cv::Mat &img) const {
   cv::Mat frequency_img = estimateRidgeFrequency(
       normalized_img, orientation_img, params_.freq_block_size);
 
-  // Region Mask Extraction
-  cv::Mat region_mask = extractFingerprintROI(gray_img, params_.roi_ksize);
+  // ROI Extraction
+  cv::Mat roi = extractFingerprintROI(gray_img, params_.roi_ksize);
 
   // Recoverability Check
-  double RECOVERABLE_THRESHOLD = params_.recoverable_threshold;
-  double recoverable_ratio = cv::sum(region_mask / 255)[0] /
-                             (region_mask.rows * region_mask.cols) * 100.0;
-  if (recoverable_ratio < RECOVERABLE_THRESHOLD) {
-    std::cout << "Image Rejected: Recoverable region is " << recoverable_ratio
+  double RECOVERABILITY_THRESHOLD = params_.recoverable_threshold;
+  double recoverability =
+      cv::sum(roi / 255)[0] / (roi.rows * roi.cols) * 100.0;
+  if (recoverability < RECOVERABILITY_THRESHOLD) {
+    std::cout << "Image Rejected: Recoverable region is " << recoverability
               << "% of the image, which is below threshold("
-              << RECOVERABLE_THRESHOLD << "%)" << std::endl;
+              << RECOVERABILITY_THRESHOLD << "%)" << std::endl;
     return EnhancementResult();
   }
 
   // Gabor Filtering
   cv::Mat enhanced_img;
   applyGaborFilter(normalized_img, enhanced_img, orientation_img, frequency_img,
-                   region_mask, params_.kx, params_.ky,
+                   roi, params_.kx, params_.ky,
                    params_.gabor_filter_size);
+  enhanced_img.convertTo(enhanced_img, CV_8UC1);
+
+  // Update ROI
+  removeThinkRidgesFromROI(roi, enhanced_img, params_.max_half_width);
+
+  enhanced_img.setTo(255, ~roi);
 
 // Visulization
 #ifdef FP_DEBUG_VIS
@@ -100,10 +106,10 @@ EnhancementResult Enhancer::enhance(const cv::Mat &img) const {
   cv::moveWindow("Frequency Image", 1150, 410);
   cv::imshow("Frequency Image", frequency_img);
 
-  cv::namedWindow("Region Mask", cv::WINDOW_NORMAL);
-  cv::moveWindow("Region Mask", 50, 410);
-  cv::imshow("Region Mask", region_mask);
-  std::cout << "Recoverable region: " << recoverable_ratio << '%' << std::endl;
+  cv::namedWindow("ROI", cv::WINDOW_NORMAL);
+  cv::moveWindow("ROI", 50, 410);
+  cv::imshow("ROI", roi);
+  std::cout << "Recoverable region: " << recoverability << '%' << std::endl;
 
   cv::namedWindow("Enhanced Image", cv::WINDOW_NORMAL);
   cv::moveWindow("Enhanced Image", 450, 410);
@@ -111,8 +117,7 @@ EnhancementResult Enhancer::enhance(const cv::Mat &img) const {
   cv::waitKey(0);
 #endif
 
-  enhanced_img.convertTo(enhanced_img, CV_8UC1);
-  return {enhanced_img, orientation_img, frequency_img, region_mask};
+  return {enhanced_img, orientation_img, frequency_img, roi};
 }
 
 } // namespace fp

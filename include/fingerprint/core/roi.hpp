@@ -3,6 +3,7 @@
 
 namespace fp {
 
-cv::Mat extractFingerprintROI(const cv::Mat &img, cv::Size ksize);
+cv::Mat extractFingerprintROI(const cv::Mat &gray_img, cv::Size ksize);
+void removeThinkRidgesFromROI(cv::Mat &roi, const cv::Mat enhanced_img, float max_half_width);
 
 } // namespace fp
