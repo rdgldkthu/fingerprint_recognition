@@ -10,6 +10,7 @@ add_library(fingerprint_core
     src/core/gabor.cpp
     src/core/minutiae.cpp
     src/core/orientation.cpp
+    src/core/pruning.cpp
     src/core/roi.cpp
     src/core/skeleton.cpp
     src/enhancement/enhancement.cpp

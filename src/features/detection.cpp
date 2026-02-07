@@ -1,6 +1,7 @@
 #include "fingerprint/features/detection.hpp"
 #include "fingerprint/core/minutiae.hpp"
 #include "fingerprint/core/skeleton.hpp"
+#include "fingerprint/core/pruning.hpp"
 #include "fingerprint/core/types.hpp"
 #include <iostream>
 #include <opencv2/highgui.hpp>
@@ -16,13 +17,21 @@ std::vector<Minutia> Detector::detect(const cv::Mat &enhanced_img,
     return minutiae;
   }
 
-  cv::Mat thinned_img;
-  skeletonizeRidges(enhanced_img, thinned_img);
+  cv::Mat skeleton;
+  skeletonizeRidges(enhanced_img, skeleton);
 
-  minutiae = detectMinutiae(thinned_img, orientation, mask);
+  pruneSpurs(skeleton, 9);
+  pruneIslands(skeleton, 30);
+  pruneLakes(skeleton, 150);
+
+  minutiae = detectMinutiae(skeleton, orientation, mask);
 
 #ifdef FP_DEBUG_VIS
-  cv::Mat vis = visualizeMinutiae(thinned_img, minutiae);
+  cv::namedWindow("Skeleton Image", cv::WINDOW_NORMAL);
+  cv::moveWindow("Skeleton Image", 50, 750);
+  cv::imshow("Skeleton Image", skeleton);
+
+  cv::Mat vis = visualizeMinutiae(skeleton, minutiae);
   cv::namedWindow("Visualize Minutiae", cv::WINDOW_NORMAL);
   cv::moveWindow("Visualize Minutiae", 450, 750);
   cv::imshow("Visualize Minutiae", vis);
