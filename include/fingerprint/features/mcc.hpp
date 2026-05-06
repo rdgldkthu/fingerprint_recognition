@@ -7,8 +7,8 @@ const int NS = 8;
 const int ND = 6;
 const int NC = NS * NS * ND;
 const float R = 70.0f;
-const float SIGMA_S = 8.0f;
-const float SIGMA_D = 0.5f;
+const float SIGMA_S = 10.0f;
+const float SIGMA_D = 0.8f;
 } // namespace MCC_PARAMS
 
 namespace fp {

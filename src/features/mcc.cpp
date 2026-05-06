@@ -4,11 +4,11 @@
 namespace fp {
 
 double Cylinder::compare(const Cylinder &a, const Cylinder &b) {
-  auto valid_mask = a.mask & b.mask;
-  if (valid_mask.none())
+  auto either = a.bit_vector | b.bit_vector;
+  if (either.none())
     return 0.0;
-  auto diff = (a.bit_vector ^ b.bit_vector) & valid_mask;
-  return 1.0 - (static_cast<double>(diff.count()) / valid_mask.count());
+  auto both = a.bit_vector & b.bit_vector;
+  return static_cast<double>(both.count()) / either.count();
 }
 
 std::vector<Cylinder>
@@ -69,9 +69,9 @@ float MCCExtractor::getContribution(const Minutia &m, float cell_x,
   float c_s =
       std::exp(-d2 / (2.0f * MCC_PARAMS::SIGMA_S * MCC_PARAMS::SIGMA_S));
 
-  float d_theta = std::abs(cell_theta - m.theta);
-  if (d_theta > M_PI)
-    d_theta = 2.0f * M_PI - d_theta;
+  float d_theta = std::fmod(std::abs(cell_theta - m.theta), M_PI);
+  if (d_theta > M_PI / 2.0f)
+    d_theta = M_PI - d_theta;
   float c_d = std::exp(-(d_theta * d_theta) /
                        (2.0f * MCC_PARAMS::SIGMA_D * MCC_PARAMS::SIGMA_D));
 
