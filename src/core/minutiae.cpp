@@ -40,14 +40,15 @@ std::vector<float> computeBifurcationDirections(const cv::Mat &win) {
   return dirs;
 }
 
-bool pruneEnding(float theta_m, float theta_f) {
-  return fp::angleDiff(theta_m, theta_f) < CV_PI / 6; // 30 deg
+bool pruneEnding(float theta_m, float theta_f, float angle_tolerance) {
+  return fp::angleDiff(theta_m, theta_f) < angle_tolerance;
 }
 
-bool pruneBifurcation(const std::vector<float> &dirs, float theta_f) {
+bool pruneBifurcation(const std::vector<float> &dirs, float theta_f,
+                      float angle_tolerance) {
   int valid = 0;
   for (float d : dirs) {
-    if (fp::angleDiff(d, theta_f) < CV_PI / 6)
+    if (fp::angleDiff(d, theta_f) < angle_tolerance)
       valid++;
   }
   return valid >= 2;
@@ -63,7 +64,7 @@ cv::Mat computeMaskDistance(const cv::Mat &mask) {
 }
 
 void pruneByMaskDistance(std::vector<fp::Minutia> &minutiae,
-                         const cv::Mat &mask_dist, float min_dist = 8.0f) {
+                         const cv::Mat &mask_dist, float min_dist) {
   std::vector<fp::Minutia> pruned;
   pruned.reserve(minutiae.size());
 
@@ -110,7 +111,10 @@ namespace fp {
 // CV_32F, radian
 std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
                                     const cv::Mat &orientation,
-                                    const cv::Mat &mask) {
+                                    const cv::Mat &mask,
+                                    float angle_tolerance,
+                                    float border_dist_min,
+                                    int image_margin) {
   CV_Assert(skeleton.type() == CV_8UC1);
   CV_Assert(orientation.type() == CV_32F);
 
@@ -138,13 +142,13 @@ std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
 
       if (cn == 1) {
         float theta_m = computeEndingDirection(win);
-        if (!pruneEnding(theta_m, theta_f))
+        if (!pruneEnding(theta_m, theta_f, angle_tolerance))
           continue;
 
         minutiae.push_back({y, x, theta_f, MinutiaType::ENDING});
       } else if (cn == 3) {
         auto dirs = computeBifurcationDirections(win);
-        if (!pruneBifurcation(dirs, theta_f))
+        if (!pruneBifurcation(dirs, theta_f, angle_tolerance))
           continue;
 
         minutiae.push_back({y, x, theta_f, MinutiaType::BIFURCATION});
@@ -154,9 +158,9 @@ std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
 
   cv::Mat mask_dist = computeMaskDistance(mask);
 
-  pruneByMaskDistance(minutiae, mask_dist);
+  pruneByMaskDistance(minutiae, mask_dist, border_dist_min);
 
-  pruneByImageBorder(minutiae, mask.cols, mask.rows, 10);
+  pruneByImageBorder(minutiae, mask.cols, mask.rows, image_margin);
 
   return minutiae;
 }

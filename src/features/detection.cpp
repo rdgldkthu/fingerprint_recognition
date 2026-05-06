@@ -8,6 +8,8 @@
 
 namespace fp {
 
+Detector::Detector(DetectorParams params) : params_(params) {}
+
 std::vector<Minutia> Detector::detect(const cv::Mat &enhanced_img,
                                       const cv::Mat &orientation,
                                       const cv::Mat &mask) const {
@@ -20,11 +22,13 @@ std::vector<Minutia> Detector::detect(const cv::Mat &enhanced_img,
   cv::Mat skeleton;
   skeletonizeRidges(enhanced_img, skeleton);
 
-  pruneSpurs(skeleton, 9);
-  pruneIslands(skeleton, 30);
-  pruneLakes(skeleton, 150);
+  pruneSpurs(skeleton, params_.spur_max_len);
+  pruneIslands(skeleton, params_.island_min_size);
+  pruneLakes(skeleton, params_.lake_max_area);
 
-  minutiae = detectMinutiae(skeleton, orientation, mask);
+  minutiae = detectMinutiae(skeleton, orientation, mask,
+                            params_.angle_tolerance, params_.border_dist_min,
+                            params_.image_margin);
 
 #ifdef FP_DEBUG_VIS
   cv::namedWindow("Skeleton Image", cv::WINDOW_NORMAL);
