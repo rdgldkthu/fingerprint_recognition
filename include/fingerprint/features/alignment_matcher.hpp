@@ -5,7 +5,7 @@
 namespace fp {
 
 struct AlignmentMatcherParams {
-    float spatial_tolerance = 15.0f;
+    float spatial_tolerance = 10.0f;
     float angle_tolerance   = 0.35f;
 };
 

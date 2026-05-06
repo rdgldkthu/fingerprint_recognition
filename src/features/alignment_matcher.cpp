@@ -57,6 +57,7 @@ std::vector<MatchedPair> AlignmentMatcher::matchUnderAlignment(
         float ta_theta = normalizeAngle(A[i].theta + dtheta);
 
         for (int j = 0; j < (int)B.size(); ++j) {
+            if (A[i].type != B[j].type) continue;
             float ddx = ta_x - B[j].x;
             float ddy = ta_y - B[j].y;
             float dist = std::sqrt(ddx * ddx + ddy * ddy);

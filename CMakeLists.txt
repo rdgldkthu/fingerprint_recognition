@@ -17,6 +17,7 @@ add_library(fingerprint_core
     src/features/alignment_matcher.cpp
     src/features/detection.cpp
     src/features/mcc.cpp
+    src/features/visualization.cpp
 )
 
 target_link_libraries(fingerprint_core ${OpenCV_LIBS})

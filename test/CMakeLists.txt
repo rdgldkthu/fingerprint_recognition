@@ -3,3 +3,6 @@ target_link_libraries(eval PRIVATE fingerprint_core)
 
 add_executable(test_alignment_matcher test_alignment_matcher.cpp)
 target_link_libraries(test_alignment_matcher PRIVATE fingerprint_core)
+
+add_executable(test_visualization test_visualization.cpp)
+target_link_libraries(test_visualization PRIVATE fingerprint_core)
