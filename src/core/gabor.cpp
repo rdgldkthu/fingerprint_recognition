@@ -36,8 +36,8 @@ cv::Mat createGaborFilter(float freq, float ori, float kx, float ky,
 
 void buildGaborFilterBank(const std::vector<float> &unique_freqs,
                           std::vector<std::vector<cv::Mat>> &bank, float kx,
-                          float ky, int filter_size) {
-  int angle_increment = 3;
+                          float ky, int filter_size, int angle_step_deg) {
+  int angle_increment = angle_step_deg;
   int angle_steps = 180 / angle_increment;
 
   bank.resize(unique_freqs.size(), std::vector<cv::Mat>(angle_steps));
@@ -57,11 +57,11 @@ void applyGaborFilterBank(const cv::Mat &src, cv::Mat &dst,
                           const cv::Mat &region_mask,
                           const std::unordered_map<int, int> &freq_index_map,
                           const std::vector<std::vector<cv::Mat>> &bank,
-                          int filter_size) {
+                          int filter_size, int angle_step_deg) {
   int rows = src.rows;
   int cols = src.cols;
 
-  int angle_increment = 3;
+  int angle_increment = angle_step_deg;
   int angle_steps = 180 / angle_increment;
 
   dst = cv::Mat::zeros(rows, cols, CV_32FC1);
@@ -118,7 +118,7 @@ namespace fp {
 void applyGaborFilter(const cv::Mat &src, cv::Mat &dst,
                       const cv::Mat &orientation_img,
                       const cv::Mat &frequency_img, const cv::Mat &region_mask,
-                      float kx, float ky, int filter_size) {
+                      float kx, float ky, int filter_size, int angle_step_deg) {
   CV_Assert(!src.empty());
   CV_Assert(!orientation_img.empty());
   CV_Assert(!frequency_img.empty());
@@ -152,11 +152,11 @@ void applyGaborFilter(const cv::Mat &src, cv::Mat &dst,
 
   // Build Gabor filter bank
   std::vector<std::vector<cv::Mat>> bank;
-  buildGaborFilterBank(unique_freqs, bank, kx, ky, filter_size);
+  buildGaborFilterBank(unique_freqs, bank, kx, ky, filter_size, angle_step_deg);
 
   // Apply Gabor filter bank
   applyGaborFilterBank(src, dst, ori_resized, freq_resized, region_mask,
-                       freq_index_map, bank, filter_size);
+                       freq_index_map, bank, filter_size, angle_step_deg);
 }
 
 } // namespace fp

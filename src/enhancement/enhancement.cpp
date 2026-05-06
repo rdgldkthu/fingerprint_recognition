@@ -51,11 +51,14 @@ EnhancementResult Enhancer::enhance(const cv::Mat &img) const {
 
   // Orientation Image Estimation
   cv::Mat orientation_img =
-      estimateRidgeOrientation(normalized_img, params_.ori_block_size);
+      estimateRidgeOrientation(normalized_img, params_.ori_block_size,
+                               params_.ori_smooth_ksize, params_.ori_smooth_sigma);
 
   // Frequency Image Estimation
   cv::Mat frequency_img = estimateRidgeFrequency(
-      normalized_img, orientation_img, params_.freq_block_size);
+      normalized_img, orientation_img, params_.freq_block_size,
+      params_.freq_min_period, params_.freq_max_period,
+      params_.freq_interp_kernel_size, params_.freq_interp_sigma);
 
   // ROI Extraction
   cv::Mat roi = extractFingerprintROI(gray_img, params_.roi_ksize);
@@ -75,7 +78,7 @@ EnhancementResult Enhancer::enhance(const cv::Mat &img) const {
   cv::Mat enhanced_img;
   applyGaborFilter(normalized_img, enhanced_img, orientation_img, frequency_img,
                    roi, params_.kx, params_.ky,
-                   params_.gabor_filter_size);
+                   params_.gabor_filter_size, params_.gabor_angle_step_deg);
   enhanced_img.convertTo(enhanced_img, CV_8UC1);
 
   // Update ROI

@@ -27,7 +27,8 @@ void convertImg2SinCosImg(const cv::Mat &img, cv::Mat &sin_img,
 
 namespace fp {
 
-cv::Mat estimateRidgeOrientation(const cv::Mat &img, int block_size) {
+cv::Mat estimateRidgeOrientation(const cv::Mat &img, int block_size,
+                                 int smooth_ksize, float smooth_sigma) {
   CV_Assert(!img.empty());
   CV_Assert(img.type() == CV_32FC1);
 
@@ -71,8 +72,8 @@ cv::Mat estimateRidgeOrientation(const cv::Mat &img, int block_size) {
 
   convertImg2SinCosImg(2 * orientation_img, phi_y, phi_x);
 
-  cv::GaussianBlur(phi_y, phi_y, cv::Size(5, 5), 3);
-  cv::GaussianBlur(phi_x, phi_x, cv::Size(5, 5), 3);
+  cv::GaussianBlur(phi_y, phi_y, cv::Size(smooth_ksize, smooth_ksize), smooth_sigma);
+  cv::GaussianBlur(phi_x, phi_x, cv::Size(smooth_ksize, smooth_ksize), smooth_sigma);
 
   for (int y = 0; y < ori_rows; y++) {
     const float *phi_x_ptr = phi_x.ptr<float>(y);

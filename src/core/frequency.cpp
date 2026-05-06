@@ -40,7 +40,7 @@ float estimatePeriodFromXSignature(const std::vector<float> &x_sig) {
 }
 
 float computeBlockFrequency(const cv::Mat &img, float ori, int cy, int cx,
-                            int block_size) {
+                            int block_size, float min_period, float max_period) {
   // Sample the gray values along the orthogonal direction of the ridge
   // orientation
   const int window_length = 2 * block_size;
@@ -70,7 +70,7 @@ float computeBlockFrequency(const cv::Mat &img, float ori, int cy, int cx,
 
   // Estimate the period from the x-signature
   float T = estimatePeriodFromXSignature(x_sig);
-  if (T < 3.0f || T > 25.0f)
+  if (T < min_period || T > max_period)
     return -1.f;
 
   // Compute frequency
@@ -84,7 +84,9 @@ float computeBlockFrequency(const cv::Mat &img, float ori, int cy, int cx,
 namespace fp {
 
 cv::Mat estimateRidgeFrequency(const cv::Mat &img,
-                               const cv::Mat &orientation_img, int block_size) {
+                               const cv::Mat &orientation_img, int block_size,
+                               float min_period, float max_period,
+                               int interp_ksize, float interp_sigma) {
   CV_Assert(!img.empty());
   CV_Assert(!orientation_img.empty());
   CV_Assert(img.type() == CV_32FC1);
@@ -103,15 +105,17 @@ cv::Mat estimateRidgeFrequency(const cv::Mat &img,
       float cx = bx * block_size + block_size * 0.5f;
       float cy = by * block_size + block_size * 0.5f;
 
-      float freq = computeBlockFrequency(img, ori, cy, cx, block_size);
+      float freq = computeBlockFrequency(img, ori, cy, cx, block_size,
+                                        min_period, max_period);
 
       frequency_img.at<float>(by, bx) = freq;
     }
   }
 
   // Interpolation to fill the missing frequency values
-  cv::Mat kernel = cv::getGaussianKernel(7, 3, CV_32F);
+  cv::Mat kernel = cv::getGaussianKernel(interp_ksize, interp_sigma, CV_32F);
   cv::Mat kernel2D = kernel * kernel.t();
+  int half_ksize = interp_ksize / 2;
 
   for (int by = 0; by < rows; ++by) {
     for (int bx = 0; bx < cols; ++bx) {
@@ -119,14 +123,14 @@ cv::Mat estimateRidgeFrequency(const cv::Mat &img,
         float weighted_sum = 0.f;
         float weight_sum = 0;
 
-        for (int dy = -3; dy <= 3; ++dy) {
-          for (int dx = -3; dx <= 3; ++dx) {
+        for (int dy = -half_ksize; dy <= half_ksize; ++dy) {
+          for (int dx = -half_ksize; dx <= half_ksize; ++dx) {
             int ny = by + dy;
             int nx = bx + dx;
             if (ny >= 0 && ny < rows && nx >= 0 && nx < cols) {
               float f = frequency_img.at<float>(ny, nx);
               if (f > 0.f) {
-                float w = kernel2D.at<float>(dy + 3, dx + 3);
+                float w = kernel2D.at<float>(dy + half_ksize, dx + half_ksize);
                 weighted_sum += f * w;
                 weight_sum += w;
               }
@@ -140,7 +144,8 @@ cv::Mat estimateRidgeFrequency(const cv::Mat &img,
   }
 
   // Perform smoothing to the frequency image
-  cv::GaussianBlur(frequency_img, frequency_img, cv::Size(7, 7), 0);
+  cv::GaussianBlur(frequency_img, frequency_img,
+                   cv::Size(interp_ksize, interp_ksize), 0);
 
   return frequency_img;
 }

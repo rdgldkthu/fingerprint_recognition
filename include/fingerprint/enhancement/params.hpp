@@ -25,6 +25,17 @@ struct EnhancerParams {
   float kx = 4.0f;
   float ky = 4.0f;
   int gabor_filter_size = 11;
+  int gabor_angle_step_deg = 3;
+
+  // Frequency Estimation
+  float freq_min_period = 3.0f;
+  float freq_max_period = 25.0f;
+  int freq_interp_kernel_size = 7;
+  float freq_interp_sigma = 3.0f;
+
+  // Orientation Smoothing
+  int ori_smooth_ksize = 5;
+  float ori_smooth_sigma = 3.0f;
 };
 
 } // namespace fp
