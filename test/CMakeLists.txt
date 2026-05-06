@@ -1,2 +1,5 @@
 add_executable(eval eval.cpp)
 target_link_libraries(eval PRIVATE fingerprint_core)
+
+add_executable(test_alignment_matcher test_alignment_matcher.cpp)
+target_link_libraries(test_alignment_matcher PRIVATE fingerprint_core)
