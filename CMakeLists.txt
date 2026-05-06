@@ -25,7 +25,7 @@ target_include_directories(fingerprint_core PUBLIC
 )
 
 # ---- Executable ----
-add_executable(fingerprint_app src/main.cpp)
+add_executable(fingerprint_app app/match_fp.cpp)
 target_link_libraries(fingerprint_app PRIVATE fingerprint_core)
 
 # ---- Macros ----
