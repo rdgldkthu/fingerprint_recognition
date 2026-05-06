@@ -1,7 +1,6 @@
 #include "fingerprint/enhancement/enhancement.hpp"
+#include "fingerprint/features/alignment_matcher.hpp"
 #include "fingerprint/features/detection.hpp"
-#include "fingerprint/features/matching.hpp"
-#include "fingerprint/features/mcc.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -18,8 +17,7 @@ using namespace std;
 double matchFingerprint(const cv::Mat &img1, const cv::Mat &img2) {
   fp::Enhancer enhancer;
   fp::Detector detector;
-  fp::MCCExtractor descriptor;
-  fp::LSSMatcher<fp::Cylinder> matcher;
+  fp::AlignmentMatcher matcher;
 
   auto enhanced1 = enhancer.enhance(img1);
   auto enhanced2 = enhancer.enhance(img2);
@@ -29,11 +27,7 @@ double matchFingerprint(const cv::Mat &img1, const cv::Mat &img2) {
   auto minutiae2 = detector.detect(enhanced2.enhanced_img,
                                    enhanced2.orientation_img, enhanced2.mask);
 
-  auto descriptors1 = descriptor.extract(minutiae1);
-  auto descriptors2 = descriptor.extract(minutiae2);
-
-  auto match_score = matcher.computeScore(descriptors1, descriptors2);
-  return match_score;
+  return matcher.computeScore(minutiae1, minutiae2);
 }
 
 struct ScoreLabel {

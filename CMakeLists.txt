@@ -16,7 +16,6 @@ add_library(fingerprint_core
     src/enhancement/enhancement.cpp
     src/features/alignment_matcher.cpp
     src/features/detection.cpp
-    src/features/mcc.cpp
     src/features/visualization.cpp
 )
 

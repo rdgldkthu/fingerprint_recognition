@@ -1,7 +1,7 @@
 #include "fingerprint/enhancement/enhancement.hpp"
+#include "fingerprint/features/alignment_matcher.hpp"
 #include "fingerprint/features/detection.hpp"
-#include "fingerprint/features/matching.hpp"
-#include "fingerprint/features/mcc.hpp"
+#include "fingerprint/features/visualization.hpp"
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
@@ -24,8 +24,7 @@ int main(int argc, char **argv) {
   // Initialization
   fp::Enhancer enhancer;
   fp::Detector detector;
-  fp::MCCExtractor descriptor;
-  fp::LSSMatcher<fp::Cylinder> matcher;
+  fp::AlignmentMatcher matcher;
 
   // Fingerprint Enhancement
   auto enhanced1 = enhancer.enhance(img1);
@@ -36,18 +35,19 @@ int main(int argc, char **argv) {
                                    enhanced1.orientation_img, enhanced1.mask);
   auto minutiae2 = detector.detect(enhanced2.enhanced_img,
                                    enhanced2.orientation_img, enhanced2.mask);
-  std::cout << "Minutiae detected in image 1: " << minutiae1.size()
-            << std::endl;
-  std::cout << "Minutiae detected in image 2: " << minutiae2.size()
-            << std::endl;
+  std::cout << "Minutiae detected in image 1: " << minutiae1.size() << std::endl;
+  std::cout << "Minutiae detected in image 2: " << minutiae2.size() << std::endl;
 
-  // Descriptor Extraction
-  auto descriptors1 = descriptor.extract(minutiae1);
-  auto descriptors2 = descriptor.extract(minutiae2);
+  // Matching
+  auto matches = matcher.findBestAlignment(minutiae1, minutiae2);
+  double score = matcher.computeScore(minutiae1, minutiae2);
+  std::cout << "Match score: " << score << std::endl;
 
-  // Descriptor Matching
-  auto match_score = matcher.computeScore(descriptors1, descriptors2);
-  std::cout << match_score << std::endl;
+  // Visualization
+  cv::Mat vis = fp::visualizeMatching(enhanced1.enhanced_img, enhanced2.enhanced_img,
+                                      minutiae1, minutiae2, matches);
+  cv::imshow("Matching Result", vis);
+  cv::waitKey(0);
 
   return 0;
 }
