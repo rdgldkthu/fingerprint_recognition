@@ -31,13 +31,11 @@ Cylinder MCCExtractor::computeSingleCylinder(const Minutia &center,
     float cell_theta = (2.0f * M_PI * k) / MCC_PARAMS::ND;
     for (int i = 0; i < MCC_PARAMS::NS; ++i) {
       for (int j = 0; j < MCC_PARAMS::NS; ++j) {
-        // Cell local coordinates
         float cx = (i - (MCC_PARAMS::NS - 1) / 2.0f) *
                    (2.0f * MCC_PARAMS::R / MCC_PARAMS::NS);
         float cy = (j - (MCC_PARAMS::NS - 1) / 2.0f) *
                    (2.0f * MCC_PARAMS::R / MCC_PARAMS::NS);
 
-        // Rotate the cell coordinates around the center
         float rx = center.x + (cx * cos_c - cy * sin_c);
         float ry = center.y + (cx * sin_c + cy * cos_c);
 
@@ -49,7 +47,6 @@ Cylinder MCCExtractor::computeSingleCylinder(const Minutia &center,
               getContribution(m, rx, ry, center.theta + cell_theta);
         }
 
-        // Sigmoid binarization
         int bit_idx =
             k * (MCC_PARAMS::NS * MCC_PARAMS::NS) + i * MCC_PARAMS::NS + j;
         if (1.0f / (1.0f + std::exp(-10.0f * (total_contribution - 0.5f))) >
@@ -69,11 +66,9 @@ float MCCExtractor::getContribution(const Minutia &m, float cell_x,
   float dy = cell_y - m.y;
   float d2 = dx * dx + dy * dy;
 
-  // Spatial contribution
   float c_s =
       std::exp(-d2 / (2.0f * MCC_PARAMS::SIGMA_S * MCC_PARAMS::SIGMA_S));
 
-  // Directional contribution
   float d_theta = std::abs(cell_theta - m.theta);
   if (d_theta > M_PI)
     d_theta = 2.0f * M_PI - d_theta;

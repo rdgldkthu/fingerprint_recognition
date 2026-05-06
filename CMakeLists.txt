@@ -16,6 +16,7 @@ add_library(fingerprint_core
     src/enhancement/enhancement.cpp
     src/features/alignment_matcher.cpp
     src/features/detection.cpp
+    src/features/mcc.cpp
     src/features/visualization.cpp
 )
 
@@ -25,9 +26,12 @@ target_include_directories(fingerprint_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# ---- Executable ----
+# ---- Executables ----
 add_executable(fingerprint_app app/match_fp.cpp)
 target_link_libraries(fingerprint_app PRIVATE fingerprint_core)
+
+add_executable(fingerprint_app_mcc app/match_fp_mcc.cpp)
+target_link_libraries(fingerprint_app_mcc PRIVATE fingerprint_core)
 
 # ---- Macros ----
 target_compile_definitions(fingerprint_core PUBLIC
