@@ -36,6 +36,9 @@ target_link_libraries(fingerprint_app_mcc PRIVATE fingerprint_core)
 add_executable(enhance_all app/enhance_all.cpp)
 target_link_libraries(enhance_all PRIVATE fingerprint_core)
 
+add_executable(generate_vis app/generate_vis.cpp)
+target_link_libraries(generate_vis PRIVATE fingerprint_core)
+
 # ---- Macros ----
 target_compile_definitions(fingerprint_core PUBLIC
     DATA_DIR="${CMAKE_SOURCE_DIR}/data"

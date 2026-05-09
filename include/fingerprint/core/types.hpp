@@ -19,4 +19,9 @@ struct EnhancementResult {
   cv::Mat mask;            // CV_8U
 };
 
+struct MatchedPair {
+  int idx_a;
+  int idx_b;
+};
+
 } // namespace fp

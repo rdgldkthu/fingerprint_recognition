@@ -9,11 +9,6 @@ struct AlignmentMatcherParams {
     float angle_tolerance   = 0.35f;
 };
 
-struct MatchedPair {
-    int idx_a;
-    int idx_b;
-};
-
 class AlignmentMatcher {
 public:
     explicit AlignmentMatcher(AlignmentMatcherParams params = {});

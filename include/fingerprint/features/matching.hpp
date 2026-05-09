@@ -1,4 +1,5 @@
 #pragma once
+#include "fingerprint/core/types.hpp"
 #include <vector>
 
 namespace fp {
@@ -18,6 +19,25 @@ public:
       sum_max_sim += best;
     }
     return sum_max_sim / std::max(setA.size(), setB.size());
+  }
+
+  std::vector<MatchedPair> matchPairs(const std::vector<T> &setA,
+                                      const std::vector<T> &setB) {
+    std::vector<MatchedPair> result;
+    for (int i = 0; i < (int)setA.size(); i++) {
+      double best = -1.0;
+      int best_j = 0;
+      for (int j = 0; j < (int)setB.size(); j++) {
+        double sim = T::compare(setA[i], setB[j]);
+        if (sim > best) {
+          best = sim;
+          best_j = j;
+        }
+      }
+      if (best > 0.0)
+        result.push_back({i, best_j});
+    }
+    return result;
   }
 };
 

@@ -1,6 +1,5 @@
 #pragma once
 #include "fingerprint/core/types.hpp"
-#include "fingerprint/features/alignment_matcher.hpp"
 #include <opencv2/core.hpp>
 #include <vector>
 
