@@ -6,9 +6,9 @@
 namespace fp {
 
 struct DetectorParams {
-  int spur_max_len = 9;
   int island_min_size = 30;
-  int lake_max_area = 150;
+  int spur_max_len = 9;
+  int lake_area_thresh = 150;
   float angle_tolerance = CV_PI / 6;
   float border_dist_min = 8.0f;
   int image_margin = 10;

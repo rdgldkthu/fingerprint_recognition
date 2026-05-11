@@ -87,55 +87,6 @@ float computeBifurcationTheta(const std::vector<float> &dirs, float theta_f) {
   return std::atan2(by, bx);
 }
 
-cv::Mat computeMaskDistance(const cv::Mat &mask) {
-  CV_Assert(mask.type() == CV_8UC1);
-
-  cv::Mat dist;
-  cv::distanceTransform(mask, dist, cv::DIST_L2, 3);
-
-  return dist;
-}
-
-void pruneByMaskDistance(std::vector<fp::Minutia> &minutiae,
-                         const cv::Mat &mask_dist, float min_dist) {
-  std::vector<fp::Minutia> pruned;
-  pruned.reserve(minutiae.size());
-
-  for (const auto &m : minutiae) {
-
-    if (m.type == fp::MinutiaType::ENDING) {
-
-      float d = mask_dist.at<float>(m.y, m.x);
-      if (d < min_dist)
-        continue;
-    }
-
-    pruned.push_back(m);
-  }
-
-  minutiae.swap(pruned);
-}
-
-inline bool isNearImageBorder(int x, int y, int width, int height, int margin) {
-  return (x < margin || y < margin || x >= width - margin ||
-          y >= height - margin);
-}
-
-void pruneByImageBorder(std::vector<fp::Minutia> &minutiae, int width, int height,
-                        int margin) {
-  std::vector<fp::Minutia> pruned;
-  pruned.reserve(minutiae.size());
-
-  for (const auto &m : minutiae) {
-
-    if (isNearImageBorder(m.x, m.y, width, height, margin)) continue;
-
-    pruned.push_back(m);
-  }
-
-  minutiae.swap(pruned);
-}
-
 } // namespace
 
 namespace fp {
@@ -144,10 +95,7 @@ namespace fp {
 // CV_32F, radian
 std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
                                     const cv::Mat &orientation,
-                                    const cv::Mat &mask,
-                                    float angle_tolerance,
-                                    float border_dist_min,
-                                    int image_margin) {
+                                    float angle_tolerance) {
   CV_Assert(skeleton.type() == CV_8UC1);
   CV_Assert(orientation.type() == CV_32F);
 
@@ -189,13 +137,35 @@ std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
     }
   }
 
-  cv::Mat mask_dist = computeMaskDistance(mask);
-
-  pruneByMaskDistance(minutiae, mask_dist, border_dist_min);
-
-  pruneByImageBorder(minutiae, mask.cols, mask.rows, image_margin);
-
   return minutiae;
+}
+
+void pruneByMaskDistance(std::vector<Minutia> &minutiae, const cv::Mat &mask,
+                         float min_dist) {
+  cv::Mat dist;
+  cv::distanceTransform(mask, dist, cv::DIST_L2, 3);
+
+  std::vector<Minutia> pruned;
+  pruned.reserve(minutiae.size());
+  for (const auto &m : minutiae) {
+    if (m.type == MinutiaType::ENDING && dist.at<float>(m.y, m.x) < min_dist)
+      continue;
+    pruned.push_back(m);
+  }
+  minutiae.swap(pruned);
+}
+
+void pruneByImageBorder(std::vector<Minutia> &minutiae, int width, int height,
+                        int margin) {
+  std::vector<Minutia> pruned;
+  pruned.reserve(minutiae.size());
+  for (const auto &m : minutiae) {
+    if (m.x < margin || m.y < margin || m.x >= width - margin ||
+        m.y >= height - margin)
+      continue;
+    pruned.push_back(m);
+  }
+  minutiae.swap(pruned);
 }
 
 cv::Mat visualizeMinutiae(const cv::Mat &enhanced,

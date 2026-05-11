@@ -113,11 +113,14 @@ cv::Mat makeMinutiaePanel(const fp::EnhancementResult &res) {
     fp::skeletonizeRidges(res.enhanced_img, skeleton_raw);
 
     cv::Mat skeleton_pruned = skeleton_raw.clone();
-    fp::pruneSpurs(skeleton_pruned, 9);
-    fp::pruneIslands(skeleton_pruned, 30);
-    fp::pruneLakes(skeleton_pruned, 150);
+    fp::pruneIslands(skeleton_pruned);
+    fp::pruneSpurs(skeleton_pruned);
+    // fp::pruneLakes(skeleton_pruned);
+    // fp::pruneHBreaks(skeleton_pruned);
 
-    auto minutiae = fp::detectMinutiae(skeleton_pruned, res.orientation_img, res.mask);
+    auto minutiae = fp::detectMinutiae(skeleton_pruned, res.orientation_img);
+    fp::pruneByMaskDistance(minutiae, res.mask, 8.0f);
+    fp::pruneByImageBorder(minutiae, skeleton_pruned.cols, skeleton_pruned.rows, 10);
     cv::Mat minutiaeVis = fp::visualizeMinutiae(skeleton_pruned, minutiae);
 
     cv::Mat skelRawBGR, skelPrunedBGR;
@@ -153,7 +156,7 @@ cv::Mat makeMinutiaePanel(const fp::EnhancementResult &res) {
 
 int main() {
     std::string path1 = std::string(DATA_DIR) + "/raw/101_1.tif";
-    std::string path2 = std::string(DATA_DIR) + "/raw/101_5.tif";
+    std::string path2 = std::string(DATA_DIR) + "/raw/101_2.tif";
 
     cv::Mat img1 = cv::imread(path1, cv::IMREAD_GRAYSCALE);
     cv::Mat img2 = cv::imread(path2, cv::IMREAD_GRAYSCALE);
