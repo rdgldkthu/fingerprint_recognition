@@ -42,6 +42,9 @@ target_link_libraries(generate_vis PRIVATE fingerprint_core)
 add_executable(compare_all app/compare_all.cpp)
 target_link_libraries(compare_all PRIVATE fingerprint_core)
 
+add_executable(minutiae_all app/minutiae_all.cpp)
+target_link_libraries(minutiae_all PRIVATE fingerprint_core)
+
 # ---- Macros ----
 target_compile_definitions(fingerprint_core PUBLIC
     DATA_DIR="${CMAKE_SOURCE_DIR}/data"
