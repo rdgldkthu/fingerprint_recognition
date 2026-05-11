@@ -1,5 +1,6 @@
 #include "fingerprint/core/minutiae.hpp"
 #include "fingerprint/core/utility.hpp"
+#include <limits>
 #include <opencv2/imgproc.hpp>
 
 namespace {
@@ -17,25 +18,39 @@ int crossingNumber(const cv::Mat &win) {
   return cn / 2;
 }
 
-float computeEndingDirection(const cv::Mat &win) {
-  static const int dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
-  static const int dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
 
-  for (int k = 0; k < 8; ++k) {
-    if (win.at<uchar>(dy[k] + 1, dx[k] + 1) == 1)
-      return std::atan2(dy[k], dx[k]);
-  }
-  return 0.f;
-}
-
-std::vector<float> computeBifurcationDirections(const cv::Mat &win) {
+std::vector<float> traceBranchDirections(const cv::Mat &skel, int cx, int cy,
+                                         int steps = 3) {
   static const int dx[8] = {0, 1, 1, 1, 0, -1, -1, -1};
   static const int dy[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
 
   std::vector<float> dirs;
   for (int k = 0; k < 8; ++k) {
-    if (win.at<uchar>(dy[k] + 1, dx[k] + 1) == 1)
-      dirs.push_back(std::atan2(dy[k], dx[k]));
+    int nx = cx + dx[k], ny = cy + dy[k];
+    if (nx < 0 || ny < 0 || nx >= skel.cols || ny >= skel.rows) continue;
+    if (skel.at<uchar>(ny, nx) != 0) continue;
+
+    // Walk up to `steps` more pixels along this branch.
+    int px = cx, py = cy, x = nx, y = ny;
+    for (int s = 0; s < steps; ++s) {
+      int next_x = -1, next_y = -1;
+      bool ambiguous = false;
+      for (int ddy = -1; ddy <= 1 && !ambiguous; ++ddy) {
+        for (int ddx = -1; ddx <= 1 && !ambiguous; ++ddx) {
+          if (ddx == 0 && ddy == 0) continue;
+          int qx = x + ddx, qy = y + ddy;
+          if (qx == px && qy == py) continue;
+          if (qx < 0 || qy < 0 || qx >= skel.cols || qy >= skel.rows) continue;
+          if (skel.at<uchar>(qy, qx) == 0) {
+            if (next_x == -1) { next_x = qx; next_y = qy; }
+            else ambiguous = true;
+          }
+        }
+      }
+      if (ambiguous || next_x == -1) break;
+      px = x; py = y; x = next_x; y = next_y;
+    }
+    dirs.push_back(std::atan2(y - cy, x - cx));
   }
   return dirs;
 }
@@ -44,14 +59,32 @@ bool pruneEnding(float theta_m, float theta_f, float angle_tolerance) {
   return fp::angleDiff(theta_m, theta_f) < angle_tolerance;
 }
 
-bool pruneBifurcation(const std::vector<float> &dirs, float theta_f,
-                      float angle_tolerance) {
-  int valid = 0;
-  for (float d : dirs) {
-    if (fp::angleDiff(d, theta_f) < angle_tolerance)
-      valid++;
+float computeBifurcationTheta(const std::vector<float> &dirs, float theta_f) {
+  if (dirs.size() < 2) return 0.f;
+
+  // Stem = branch most aligned with the ridge axis (180° symmetry via angleDiff).
+  // Using theta_f is more reliable than pure geometric isolation: it handles
+  // symmetric configs and extra neighbors from thick skeletons without ambiguity.
+  int stem = 0;
+  float min_diff = std::numeric_limits<float>::max();
+  for (int i = 0; i < (int)dirs.size(); ++i) {
+    float diff = fp::angleDiff(dirs[i], theta_f);
+    if (diff < min_diff) { min_diff = diff; stem = i; }
   }
-  return valid >= 2;
+
+  // Fork bisector: unit-vector average of all non-stem branches.
+  float bx = 0.f, by = 0.f;
+  for (int i = 0; i < (int)dirs.size(); ++i) {
+    if (i == stem) continue;
+    bx += std::cos(dirs[i]);
+    by += std::sin(dirs[i]);
+  }
+  // Degenerate: fork branches exactly cancel — point away from stem instead.
+  if (bx * bx + by * by < 1e-6f) {
+    float s = dirs[stem];
+    return s > 0 ? s - (float)CV_PI : s + (float)CV_PI;
+  }
+  return std::atan2(by, bx);
 }
 
 cv::Mat computeMaskDistance(const cv::Mat &mask) {
@@ -141,17 +174,17 @@ std::vector<Minutia> detectMinutiae(const cv::Mat &skeleton,
       float theta_f = ori_resized.at<float>(y, x) - CV_PI / 2;
 
       if (cn == 1) {
-        float theta_m = computeEndingDirection(win);
+        auto dirs = traceBranchDirections(skeleton, x, y);
+        if (dirs.empty()) continue;
+        float theta_m = dirs[0];
         if (!pruneEnding(theta_m, theta_f, angle_tolerance))
           continue;
 
-        minutiae.push_back({y, x, theta_f, MinutiaType::ENDING});
+        minutiae.push_back({y, x, theta_m, MinutiaType::ENDING});
       } else if (cn == 3) {
-        auto dirs = computeBifurcationDirections(win);
-        if (!pruneBifurcation(dirs, theta_f, angle_tolerance))
-          continue;
-
-        minutiae.push_back({y, x, theta_f, MinutiaType::BIFURCATION});
+        auto dirs = traceBranchDirections(skeleton, x, y);
+        float theta_b = computeBifurcationTheta(dirs, theta_f);
+        minutiae.push_back({y, x, theta_b, MinutiaType::BIFURCATION});
       }
     }
   }
