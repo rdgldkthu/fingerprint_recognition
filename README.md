@@ -14,14 +14,13 @@ Raw Image → Enhancement → Minutiae Detection → Descriptor Extraction → M
 
 ## Enhancement
 
-Transforms a raw fingerprint image into a clean, binarized ridge map through six stages:
+Transforms a raw fingerprint image into a clean, binarized ridge map through five stages:
 
 1. **Normalize** — adjust mean and variance across the image
 2. **Ridge Orientation** — estimate local ridge direction per block (block size: 10 px)
 3. **Ridge Frequency** — estimate ridge period per block (range: 3–25 px)
 4. **ROI Extraction** — mask out background regions
 5. **Gabor Filter** — apply bank of oriented Gabor filters tuned to local frequency and orientation
-6. **Thinning** — reduce ridges to 1-pixel-wide skeletons
 
 ![Enhancement stages](vis/enhancement.png)
 *Left to right: raw image · orientation map · frequency map · enhanced binary*
