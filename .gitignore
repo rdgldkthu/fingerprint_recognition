@@ -46,3 +46,9 @@ Thumbs.db
 
 # --- Data folder ---
 data/
+
+# --- Visualization output (tracked for README) ---
+!vis/
+!vis/*.jpg
+!vis/*.png
+!vis/*.bmp
