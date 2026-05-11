@@ -166,6 +166,16 @@ Naming convention: `{subject_id}_{impression}.tif` — e.g. `104_3.tif` is subje
 
 ---
 
+## Known Limitations & To-Do
+
+| # | Area | Issue |
+| --- | --- | --- |
+| 1 | **Bifurcation direction** | The stem branch is identified as whichever branch best aligns with the local ridge orientation map, and the bifurcation angle is set to the unit-vector bisector of the remaining fork branches. This means correctness depends on the orientation map being reliable at that pixel, and the bisector of two diverging branches is often not a perceptually meaningful ridge direction. This degrades MCC descriptor quality because the angular neighborhood encoding is sensitive to the reference orientation of each minutia. |
+| 2 | **Minutiae pruning** | The current strategy (spur removal + border/mask distance thresholds) is coarse. There is no density-based pruning, no quality-weighted selection, and no global limit on minutiae count — low-quality images produce far too many or far too few minutiae without further filtering. |
+| 3 | **LSS matching (no global constraint)** | Local Similarity Sort is a greedy, one-to-one nearest-neighbor search in descriptor space. It enforces no geometric consistency: a minutia in A may be matched to a descriptor in B that is spatially inconsistent with other matches. This makes the score sensitive to spurious descriptors and contributes to the higher EER relative to the alignment-based matcher. |
+
+---
+
 ## References
 
 - Lin Hong, Yifei Wan, and Anil Jain, "Fingerprint Image Enhancement: Algorithm and Performance Evaluation," *IEEE Transactions on Pattern Analysis and Machine Intelligence*, vol. 20, no. 8, pp. 777–789, 1998.
