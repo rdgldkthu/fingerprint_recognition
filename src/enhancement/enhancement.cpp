@@ -82,7 +82,7 @@ EnhancementResult Enhancer::enhance(const cv::Mat &img) const {
   enhanced_img.convertTo(enhanced_img, CV_8UC1);
 
   // Update ROI
-  removeThinkRidgesFromROI(roi, enhanced_img, params_.max_half_width);
+  removeThickRidgesFromROI(roi, enhanced_img, params_.max_half_width, params_.thick_ridge_dilation_size);
 
   enhanced_img.setTo(255, ~roi);
 

@@ -18,6 +18,7 @@ struct EnhancerParams {
   // Region Mask Extraction
   cv::Size roi_ksize{31, 61};
   float max_half_width = 4.0f;
+  int thick_ridge_dilation_size = 11;
 
   // Recoverability Check
   double recoverable_threshold = 40.0;

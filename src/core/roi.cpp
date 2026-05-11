@@ -25,8 +25,8 @@ cv::Mat extractFingerprintROI(const cv::Mat &gray_img, cv::Size ksize) {
   return region_mask;
 }
 
-void removeThinkRidgesFromROI(cv::Mat &roi, const cv::Mat enhanced_img,
-                              float max_half_width) {
+void removeThickRidgesFromROI(cv::Mat &roi, const cv::Mat enhanced_img,
+                               float max_half_width, int dilation_size) {
   CV_Assert(!enhanced_img.empty());
   CV_Assert(enhanced_img.type() == CV_8UC1);
 
@@ -43,7 +43,8 @@ void removeThinkRidgesFromROI(cv::Mat &roi, const cv::Mat enhanced_img,
   thick_mask.convertTo(thick_mask, CV_8UC1, 255);
 
   // blob core expansion
-  cv::Mat se = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(11, 11));
+  cv::Mat se = cv::getStructuringElement(cv::MORPH_ELLIPSE,
+                                         cv::Size(dilation_size, dilation_size));
   cv::morphologyEx(thick_mask, thick_mask, cv::MORPH_DILATE, se);
 
   roi.setTo(0, thick_mask);
